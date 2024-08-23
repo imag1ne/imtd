@@ -3,12 +3,17 @@ use std::hash::Hash;
 
 use rayon::prelude::*;
 use counter::Counter;
-use pyo3::{pyfunction, types::{PyAnyMethods, PyList}, Bound, PyResult};
+use pyo3::{pyfunction, types::{PyAnyMethods, PySequence, PyMapping}, Bound, PyResult};
+
+const DEFAULT_NAME_KEY: &str = "concept:name";
+const DEFAULT_RESOURCE_KEY: &str = "org:resource";
 
 #[pyfunction]
-pub fn distance_matrix(event_log_1: &Bound<'_, PyList>, event_log_2: &Bound<'_, PyList>) -> PyResult<Vec<Vec<f64>>> {
-    let event_log_1 = event_log_1.extract::<Vec<Vec<(String, String)>>>()?;
-    let event_log_2 = event_log_2.extract::<Vec<Vec<(String, String)>>>()?;
+pub fn distance_matrix(event_log_1: &Bound<'_, PySequence>, event_log_2: &Bound<'_, PySequence>) -> PyResult<Vec<Vec<f64>>> {
+    let event_log_1 = event_log_1.extract::<Vec<Vec<Bound<'_, PyMapping>>>>()?;
+    let event_log_2 = event_log_2.extract::<Vec<Vec<Bound<'_, PyMapping>>>>()?;
+    let event_log_1  = preprocess_event_log(&event_log_1)?;
+    let event_log_2  = preprocess_event_log(&event_log_2)?;
 
     let matrix = event_log_1.par_iter().map(|trace_1| {
         event_log_2.par_iter().map(|trace_2| {
@@ -19,7 +24,23 @@ pub fn distance_matrix(event_log_1: &Bound<'_, PyList>, event_log_2: &Bound<'_, 
         }).collect()
     }).collect();
 
+    println!("Hi");
     Ok(matrix)
+}
+
+fn preprocess_event_log(event_log: &[Vec<Bound<PyMapping>>]) -> PyResult<Vec<Vec<(String, String)>>> {
+    let processed_event_log = event_log.iter().map(|trace| {
+        let processed_trace = trace.iter().map(|event| {
+            let activity = event.get_item(DEFAULT_NAME_KEY)?.to_string();
+            let resource = event.get_item(DEFAULT_RESOURCE_KEY)?.to_string();
+
+            Ok((activity, resource))
+        }).collect::<PyResult<Vec<(String, String)>>>()?;
+
+        Ok(processed_trace)
+    }).collect::<PyResult<Vec<Vec<(String, String)>>>>()?;
+
+    Ok(processed_event_log)
 }
 
 pub fn activity_distance(trace1: &[(String,String)], trace2: &[(String, String)]) -> f64 {
