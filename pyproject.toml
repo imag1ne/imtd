@@ -1,0 +1,29 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0", "setuptools"]
+build-backend = "maturin"
+
+[tool.maturin]
+python-source = "python"
+
+[tool.poetry]
+name = "imtd"
+version = "0.1.0"
+description = "Discoviering process model utilizing desirable and undesirable traces"
+authors = ["Xudong Zhu"]
+readme = "README.md"
+packages = [
+    { include = "imtd", from = "python" },
+]
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+pm4py = "=2.5.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.2"
+mypy = "^1.11.1"
+
+[tool.poetry.scripts]
+entrypoint = "scripts.main:main"
+split_data = "scripts.split_data:main"
+calculate_distance = "scripts.calculate_distance:main"

@@ -1,0 +1,18 @@
+[package]
+name = "imtd"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "imtd"
+crate-type = ["cdylib"]
+
+[dependencies]
+petgraph = "0.6"
+counter = "0.6"
+rayon = "1.8"
+
+[dependencies.pyo3]
+version = "0.22"
+features = ["extension-module", "abi3-py310"]
