@@ -24,7 +24,6 @@ pub fn distance_matrix(event_log_1: &Bound<'_, PySequence>, event_log_2: &Bound<
         }).collect()
     }).collect();
 
-    println!("Hi");
     Ok(matrix)
 }
 
