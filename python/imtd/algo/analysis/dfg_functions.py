@@ -3,6 +3,7 @@ from collections import Counter
 import copy
 from collections import defaultdict
 import matplotlib.pyplot as plt
+from pm4py.objects.log.util.xes import DEFAULT_NAME_KEY
 
 
 def n_edges(net, S, T, scaling=None):
@@ -448,3 +449,14 @@ def generate_nx_graph_from_dfg(dfg):
     for edge in dfg:
         G.add_edge(edge[0], edge[1])
     return G
+
+def edge_trace_mapping(event_log):
+    edge_trace_map = defaultdict(list)
+    window = 1
+    activity_key = DEFAULT_NAME_KEY
+    for trace_idx, trace in enumerate(event_log):
+        for i in range(window, len(trace)):
+            edge = (trace[i - window][activity_key], trace[i][activity_key])
+            edge_trace_map[edge].append(trace_idx)
+
+    return edge_trace_map

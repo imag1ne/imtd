@@ -24,6 +24,8 @@ from pm4py.objects.log.obj import EventLog, Event
 
 from imtd.algo.analysis import dfg_functions
 from imtd.algo.discovery.dfg import algorithm as dfg_discovery
+from imtd import find_possible_partitions
+from imtd import DirectlyFollowsGraph
 
 
 def artificial_start_end(event_log: EventLog) -> EventLog:
@@ -88,6 +90,8 @@ class SubtreePlain(object):
             self.inverted_dfg = None
             self.original_log = logp
             self.activities = None
+            self.edge_trace_map_plus = dfg_functions.edge_trace_mapping(self.log_art)
+            self.edge_trace_map_minus = dfg_functions.edge_trace_mapping(self.logM_art)
 
             self.initialize_tree(dfg, logp, logm, initial_dfg, activities, parameters=parameters, sup=sup, ratio=ratio,
                                  size_par=size_par)
@@ -125,9 +129,10 @@ class SubtreePlain(object):
         # check base cases:
         isbase, cut = dfg_functions.check_base_case(self, logP_var, logM_var, sup, ratio, size_par)
 
-        if isbase == False:
+        if not isbase:
             dfg2 = dfg_discovery.apply(self.log_art, variant=dfg_discovery.Variants.FREQUENCY)
             netP = generate_nx_graph_from_dfg(dfg2)
+            netP2 = DirectlyFollowsGraph.try_from_dict(dfg2)
             del dfg2[('start', 'end')]
 
             dfg2M = dfg_discovery.apply(self.logM_art, variant=dfg_discovery.Variants.FREQUENCY)
@@ -146,6 +151,7 @@ class SubtreePlain(object):
 
             time_search_start = time.time()
             possible_partitions = dfg_functions.find_possible_partitions(netP)
+            # possible_partitions = find_possible_partitions(netP2)
             time_search_end = time.time()
             print("searching time = " + str(time_search_end - time_search_start))
 
