@@ -18,6 +18,8 @@ import pkgutil
 
 from pm4py import util as pmutil
 from pm4py.algo.discovery.dfg.variants import native as dfg_inst
+
+from imtd.algo.analysis.dfg_functions import edge_trace_mapping
 from imtd.algo.discovery.inductive.util import tree_consistency
 from imtd.algo.discovery.inductive.util.petri_el_count import Counts
 from imtd.algo.discovery.inductive.variants.im_bi.data_structures import subtree_plain as subtree
@@ -37,6 +39,8 @@ from pm4py.util import xes_constants
 from pm4py.util import constants
 from enum import Enum
 import deprecation
+import copy
+from imtd.algo.discovery.inductive.variants.im_bi.data_structures.subtree_plain import artificial_start_end
 
 class Parameters(Enum):
     ACTIVITY_KEY = constants.PARAMETER_CONSTANT_ACTIVITY_KEY
@@ -51,7 +55,7 @@ class Parameters(Enum):
     TAU_LOOP_KEY = "tau_loop"
 
 
-def apply(logp,logm, parameters=None,sup= None, ratio = None, size_par = None):
+def apply(logp, logm, similarity_matrix, parameters=None,sup= None, ratio = None, size_par = None):
     """
     Apply the IM algorithm to a log obtaining a Petri net along with an initial and final marking
 
@@ -78,7 +82,7 @@ def apply(logp,logm, parameters=None,sup= None, ratio = None, size_par = None):
         from pm4py.statistics.variants.pandas import get as variants_get
 
 
-    net, initial_marking, final_marking = tree_to_petri.apply(apply_tree(logp,logm, parameters,sup= sup, ratio = ratio, size_par = size_par))
+    net, initial_marking, final_marking = tree_to_petri.apply(apply_tree(logp,logm, similarity_matrix, parameters,sup= sup, ratio = ratio, size_par = size_par))
     return net, initial_marking, final_marking
 
 
@@ -109,7 +113,7 @@ def apply_variants(variants, parameters=None):
 
 
 @deprecation.deprecated('2.2.10', '3.0.0', details='use newer IM implementation (IM_CLEAN)')
-def apply_tree(logp,logm, parameters=None, sup= None, ratio = None, size_par = None):
+def apply_tree(logp, logm, similarity_matrix, parameters=None, sup= None, ratio = None, size_par = None):
     """
     Apply the IM algorithm to a log obtaining a process tree
 
@@ -158,9 +162,13 @@ def apply_tree(logp,logm, parameters=None, sup= None, ratio = None, size_par = N
         contains_empty_traces = min([len(trace) for trace in logp]) == 0
 
     recursion_depth = 0
-    sub = subtree.make_tree(logp,logm, dfgp, dfgp, dfgp, activitiesp, c, recursion_depth, 0.0, start_activitiesp,
-                            end_activitiesp,
-                            start_activitiesp, end_activitiesp, parameters, sup= sup, ratio = ratio, size_par = size_par)
+    log_art = artificial_start_end(copy.deepcopy(logp))
+    log_m_art = artificial_start_end(copy.deepcopy(logm))
+    edge_trace_map_plus = edge_trace_mapping(log_art)
+    edge_trace_map_minus = edge_trace_mapping(log_m_art)
+    sub = subtree.make_tree(logp,logm, dfgp, dfgp, start_activitiesp,
+                            end_activitiesp, similarity_matrix, edge_trace_map_plus, edge_trace_map_minus,
+                             c, recursion_depth,0.0, sup, ratio, size_par, parameters)
 
     process_tree = get_tree_repr_implain.get_repr(sub, 0, contains_empty_traces=contains_empty_traces)
     # Ensures consistency to the parent pointers in the process tree
