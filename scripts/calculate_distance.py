@@ -6,13 +6,13 @@ import numpy as np
 
 from imtd import distance_matrix as distance_matrix_par
 
-WORKING_DIR = '../Dataset/BPI Challenge 2017_1_all/'
-DESIRABLE_EVENT_LOG = 'desirable_event_log_sample_100.xes'
-UNDESIRABLE_EVENT_LOG = 'undesirable_event_log_sample_100.xes'
+WORKING_DIR = '../Dataset/Example Event Log/'
+DESIRABLE_EVENT_LOG = 'event_log_example_2.xes'
+UNDESIRABLE_EVENT_LOG = 'event_log_example_2_un.xes'
 # DESIRABLE_EVENT_LOG = 'BPI Challenge 2017 desirable.xes'
 # UNDESIRABLE_EVENT_LOG = 'BPI Challenge 2017 undesirable.xes'
-OUTPUT_DISTANCE_FILENAME = 'distance_matrix'
-OUTPUT_SIMILARITY_FILENAME = 'similarity_matrix'
+OUTPUT_DISTANCE_FILENAME = 'example_2_distance_matrix'
+OUTPUT_SIMILARITY_FILENAME = 'example_2_similarity_matrix'
 
 def main():
     event_log_plus = pm4py.read_xes(WORKING_DIR + DESIRABLE_EVENT_LOG, return_legacy_log_object=True)

@@ -2,8 +2,12 @@ import networkx as nx
 from collections import Counter
 import copy
 from collections import defaultdict
+from collections.abc import Mapping
 import matplotlib.pyplot as plt
+from networkx import DiGraph
+from pm4py.objects.log.obj import EventLog
 from pm4py.objects.log.util.xes import DEFAULT_NAME_KEY
+import numpy as np
 
 
 def n_edges(net, S, T, scaling=None):
@@ -103,6 +107,51 @@ def cost_seq(net, A, B, start_set, end_set, sup, flow, scores):
 
     return c1 + c2 + c3
 
+def deviating_edges_cost(net, A, B, edge_trace_map_p, edge_trace_map_m, similarity_matrix):
+    deviating_edges = list(nx.edge_boundary(net, B, A, data='weight', default=1))
+    c = 0
+    for u, v, weight in deviating_edges:
+        deviating_edge = (u, v)
+        traces_p = edge_trace_map_p[deviating_edge]
+        traces_m = edge_trace_map_m[deviating_edge]
+        assert u in B
+        assert v in A
+        assert len(traces_m) == weight
+
+        for trace_idx in traces_m:
+            mask = np.ones(len(similarity_matrix), dtype=bool)
+            mask[traces_p] = False
+            similarities = similarity_matrix[mask, trace_idx]
+            if len(similarities) ==0:
+                continue
+            w = np.max(similarity_matrix[mask, trace_idx])
+            c += w
+
+    return c
+
+
+def cost_seq_minus(net, A, B, edge_trace_map_p, edge_trace_map_m, similarity_matrix, start_set, end_set, sup, flow, scores):
+    # deviating edges
+    c1 = deviating_edges_cost(net, A, B, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
+
+    c2 = 0
+    for x in A:
+        for y in B:
+            c2 += max(0, scores[(x, y)] * net.out_degree(x, weight='weight') * sup * (
+                    net.out_degree(y, weight='weight') / (
+                    sum([net.out_degree(p, weight='weight') for p in B]) + sum(
+                [net.out_degree(p, weight='weight') for p in A]))) - flow[(x, y)])
+
+    c3 = 0
+    for x in end_set:
+        for y in start_set:
+            c3 += max(0, scores[(x, y)] * n_edges(net, {x}, B.union({'end'}), scaling=scores) * sup * (
+                    n_edges(net, A.union({'start'}), {y}, scaling=scores) /
+                    (n_edges(net, A.union({'start'}), B.union({'end'}), scaling=scores))) - n_edges(net, {x}, {y},
+                                                                                                    scaling=scores))
+
+    return c1 + c2 + c3
+
 
 def fit_seq(log_var, A, B):
     count = 0
@@ -150,6 +199,11 @@ def cost_exc(net, A, B, scores):
     c1 = n_edges(net, A, B, scaling=scores_toggle)
     c1 += n_edges(net, B, A, scaling=scores_toggle)
     return c1
+
+def cost_exc_minus(net, A, B, edge_trace_map_p, edge_trace_map_m, similarity_matrix, scores):
+    c = deviating_edges_cost(net, A, B, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
+    c += deviating_edges_cost(net, B, A, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
+    return c
 
 
 def cost_par(net, A, B, sup, scores):
@@ -221,6 +275,55 @@ def cost_loop(net, A, B, sup, start_A, end_A, input_B, output_B, scores):
 
     return c1 + c2 + c3 + c4 + c5
 
+def cost_loop_minus(net, A, B,edge_trace_map_p, edge_trace_map_m, similarity_matrix, sup, start_A, end_A, input_B, output_B, scores):
+    scores_toggle = toggle(scores)
+
+    flag_loop_valid = False
+
+    if n_edges(net, B, start_A) != 0:
+        if n_edges(net, end_A, B) != 0:
+            flag_loop_valid = True
+        else:
+            return False
+    else:
+        return False
+
+    BotoAs_P = n_edges(net, output_B, start_A)
+    AetoBi_P = n_edges(net, end_A, input_B)
+    M_P = max(BotoAs_P, AetoBi_P)
+
+    c1 = deviating_edges_cost(net, {'start'}, B, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
+    c1 += deviating_edges_cost(net, B, {'end'}, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
+
+    c2 = deviating_edges_cost(net, A - end_A, B, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
+
+    c3 = deviating_edges_cost(net, B, A - start_A, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
+
+    c4 = 0
+    if len(output_B) != 0:
+        for a in start_A:
+            for b in output_B:
+                c4 += max(0, scores[(b, a)] * M_P * sup * (
+                        n_edges(net, {'start'}, {a}) / n_edges(net, {'start'}, start_A)) * (
+                                  n_edges(net, {b}, start_A) / n_edges(net, output_B, start_A)) - n_edges(net, {b},
+                                                                                                          {a},
+                                                                                                          scaling=scores))
+
+    c5 = 0
+    if len(input_B) != 0:
+        for a in end_A:
+            for b in input_B:
+                c5 += max(0,
+                          scores[(a, b)] * M_P * sup * (n_edges(net, {a}, {'end'}) / n_edges(net, end_A, {'end'})) * (
+                                  n_edges(net, end_A, {b}) / n_edges(net, end_A, input_B)) - n_edges(net, {a}, {b},
+                                                                                                     scaling=scores))
+
+    if sup * M_P == 0:
+        return False
+    if (c4 + c5) / (2 * sup * M_P) > 0.3:
+        return False
+
+    return c1 + c2 + c3 + c4 + c5
 
 def visualisecpcm(cuts, ratio, size_par):
     cp = [x[2] for x in cuts]
@@ -337,8 +440,6 @@ def check_base_case(self, logP, logM, sup_thr, ratio, size_par):
 
 
 def find_possible_partitions(net):
-    # time_search_start = time.time()
-
     def adj(node_set, graph):
         """
         all adjacent nodes of the node in the node_set
@@ -399,8 +500,7 @@ def find_possible_partitions(net):
                 if ('end' not in graph_remaining_nodes) and ('start' not in graph_remaining_nodes):
                     if nx.is_weakly_connected(graph_remaining_nodes):
                         valid.append((new_state, remaining_nodes, {"loop"}))
-    # time_search_end = time.time()
-    # print("searching time = " + str(time_search_end - time_search_start))
+
     return valid
 
 
@@ -450,7 +550,7 @@ def generate_nx_graph_from_dfg(dfg):
         G.add_edge(edge[0], edge[1])
     return G
 
-def edge_trace_mapping(event_log):
+def edge_trace_mapping(event_log: EventLog) -> defaultdict[tuple[str, str], list[int]]:
     edge_trace_map = defaultdict(list)
     window = 1
     activity_key = DEFAULT_NAME_KEY
@@ -460,3 +560,32 @@ def edge_trace_mapping(event_log):
             edge_trace_map[edge].append(trace_idx)
 
     return edge_trace_map
+
+def case_id_trace_index_mapping(event_log: EventLog) -> Mapping[str, int]:
+    case_id_trace_index_map = {}
+    for trace_idx, trace in enumerate(event_log):
+        case_id = trace[0]['case:concept:name']
+        case_id_trace_index_map[case_id] = trace_idx
+
+    return case_id_trace_index_map
+
+def generate_nx_graph_from_event_log(event_log):
+    window = 1
+    activity_key = DEFAULT_NAME_KEY
+    edge_case_id_map = defaultdict(set)
+
+    l = list(map((lambda trace: [(trace[i - window][activity_key], trace[i][activity_key], trace[i]['case:concept:name'])
+                            for i in range(window, len(trace))]), event_log))
+    dfg = Counter([(source, target) for trace in l for source, target, _ in trace])
+
+    for trace in l:
+        for source, target, case_id in trace:
+            edge_case_id_map[(source, target)].add(case_id)
+
+    graph = DiGraph()
+
+    graph.add_edges_from([(u, v, {'weight': w, 'case_id_set': edge_case_id_map[(u, v)]}) for (u, v), w in dfg.items()])
+
+    return graph
+
+# def dfg

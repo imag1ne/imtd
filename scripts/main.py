@@ -1,5 +1,6 @@
 import argparse
 import pm4py
+import numpy as np
 import time
 import pprint
 from pathlib import Path
@@ -12,6 +13,7 @@ def parse_args():
     parser.add_argument('-r', '--ratio', type=float, required=True)
     parser.add_argument('-p', '--desirable-log', type=str, required=True)
     parser.add_argument('-m', '--undesirable-log', type=str, required=True)
+    parser.add_argument('-d', '--similarity-matrix', type=str, required=True)
     parser.add_argument('-o', '--output', type=str, default='output')
 
     return parser.parse_args()
@@ -22,6 +24,7 @@ def main():
     ratio = args.ratio
     LPlus_LogFile = args.desirable_log
     LMinus_LogFile = args.undesirable_log
+    similarity_matrix = args.similarity_matrix
     output = args.output
 
     # load the event logs
@@ -31,12 +34,17 @@ def main():
     print("Desirable log: ", len(logP), " traces")
     print("Undesirable log: ", len(logM), " traces")
 
+    # load the similarity matrix
+    print("Loading similarity matrix...")
+    similarity_matrix = np.genfromtxt(similarity_matrix, delimiter=',')
+
     # discover the petri net
     print("Discovering the petri net...")
     start = time.time()
     net, initial_marking, final_marking = inductive_miner.apply_bi(
         logP,
         logM,
+        similarity_matrix,
         variant=inductive_miner.Variants.IMbi,
         sup=support,
         ratio=ratio,
