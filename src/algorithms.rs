@@ -1,7 +1,7 @@
 use std::{collections::{BTreeSet, HashSet}, vec};
 use petgraph::{graph::{DiGraph, NodeIndex}, visit::{Dfs, Reversed}, Undirected};
 use pyo3::pyfunction;
-use crate::dfg::DirectlyFollowsGraph;
+use crate::DirectlyFollowsGraph;
 
 #[pyfunction]
 pub fn find_possible_partitions(graph: &DirectlyFollowsGraph) -> Vec<(BTreeSet<String>, BTreeSet<String>, HashSet<&'static str>)> {

@@ -22,6 +22,8 @@ from pm4py.objects.log.obj import EventLog, Event
 from imtd.algo.analysis import dfg_functions
 from imtd.algo.discovery.dfg import algorithm as dfg_discovery
 
+from imtd import evaluate_cuts
+
 
 def artificial_start_end(event_log: EventLog) -> EventLog:
     """Add artificial start and end events to the traces in the event log.
@@ -144,6 +146,7 @@ class SubtreePlain:
             ratio_backup = ratio
 
             possible_partitions = dfg_functions.find_possible_partitions(nx_graph)
+            evaluate_cuts(possible_partitions, dfg_art, dfg_art_minus, nx_graph, nx_graph_minus, max_flow_graph, max_flow_graph_minus, activities_minus, log_variants, len(self.log), len(self.log_minus), feat_scores, feat_scores_togg, sup, ratio, size_par)
             for part_a, part_b, cut_types in possible_partitions:
                 part_a, part_b = part_a - {'start', 'end'}, part_b - {'start', 'end'}
                 start_part_a, end_part_a, start_part_b, input_part_b, output_part_b = get_activity_sets(dfg_art, part_a,

@@ -15,4 +15,4 @@ rayon = "1.8"
 
 [dependencies.pyo3]
 version = "0.22"
-features = ["extension-module", "abi3-py310"]
+features = ["extension-module", "abi3-py310", "gil-refs"]
