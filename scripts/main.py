@@ -15,6 +15,7 @@ def parse_args():
     parser.add_argument('-m', '--undesirable-log', type=str, required=True)
     parser.add_argument('-d', '--similarity-matrix', type=str, required=True)
     parser.add_argument('-o', '--output', type=str, default='output')
+    parser.add_argument('-x', '--parallel', type=bool, default=False, action=argparse.BooleanOptionalAction)
 
     return parser.parse_args()
 
@@ -26,6 +27,7 @@ def main():
     LMinus_LogFile = args.undesirable_log
     similarity_matrix = args.similarity_matrix
     output = args.output
+    parallel = args.parallel
 
     # load the event logs
     print("Loading event logs...")
@@ -48,7 +50,8 @@ def main():
         variant=inductive_miner.Variants.IMbi,
         sup=support,
         ratio=ratio,
-        size_par=len(logP)/len(logM))
+        size_par=len(logP)/len(logM),
+        parallel=parallel)
     end = time.time()
     elapsed_time = end - start
     elapsed_time_str = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))

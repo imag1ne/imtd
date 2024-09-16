@@ -92,6 +92,8 @@ class SubtreePlain:
 
     parameters: Optional = None
 
+    parallel: bool = False
+
     dfg: Optional[Mapping[tuple[str, str], int]] = None
     activities: Optional[Set[str]] = None
     detected_cut: Optional[str] = field(init=False, default=None)
@@ -146,120 +148,125 @@ class SubtreePlain:
             ratio_backup = ratio
 
             possible_partitions = dfg_functions.find_possible_partitions(nx_graph)
-            evaluate_cuts(possible_partitions, dfg_art, dfg_art_minus, nx_graph, nx_graph_minus, max_flow_graph, max_flow_graph_minus, activities_minus, log_variants, len(self.log), len(self.log_minus), feat_scores, feat_scores_togg, sup, ratio, size_par)
-            for part_a, part_b, cut_types in possible_partitions:
-                part_a, part_b = part_a - {'start', 'end'}, part_b - {'start', 'end'}
-                start_part_a, end_part_a, start_part_b, input_part_b, output_part_b = get_activity_sets(dfg_art, part_a,
-                                                                                                        part_b)
-                start_part_a_minus, end_part_a_minus, start_part_b_minus, input_part_b_minus, output_part_b_minus = get_activity_sets(
-                    dfg_art_minus, part_a, part_b)
 
-                if len(set(activities_minus).intersection(part_a)) == 0 or len(
-                        set(activities_minus).intersection(part_b)) == 0:
-                    ratio = 0
-                else:
-                    ratio = ratio_backup
+            if self.parallel:
+                cut += evaluate_cuts(possible_partitions, dfg_art, dfg_art_minus, nx_graph, nx_graph_minus, max_flow_graph, max_flow_graph_minus, activities_minus, log_variants, len(self.log), len(self.log_minus), feat_scores, feat_scores_togg, sup, ratio, size_par)
+            else:
+                for part_a, part_b, cut_types in possible_partitions:
+                    part_a, part_b = part_a - {'start', 'end'}, part_b - {'start', 'end'}
+                    start_part_a, end_part_a, start_part_b, input_part_b, output_part_b = get_activity_sets(dfg_art, part_a,
+                                                                                                            part_b)
+                    start_part_a_minus, end_part_a_minus, start_part_b_minus, input_part_b_minus, output_part_b_minus = get_activity_sets(
+                        dfg_art_minus, part_a, part_b)
+
+                    if len(set(activities_minus).intersection(part_a)) == 0 or len(
+                            set(activities_minus).intersection(part_b)) == 0:
+                        ratio = 0
+                    else:
+                        ratio = ratio_backup
+
+                        #####################################################################
+                        # seq check
+                    if "seq" in cut_types:
+                        fit_seq = dfg_functions.fit_seq(log_variants, part_a, part_b)
+                        if fit_seq > 0.0:
+                            cost_seq_plus = dfg_functions.cost_seq(nx_graph, part_a, part_b, start_part_b, end_part_a, sup,
+                                                                max_flow_graph, feat_scores)
+                            cost_seq_minus = dfg_functions.cost_seq(nx_graph_minus, part_a.intersection(activities_minus),
+                                                                    part_b.intersection(activities_minus),
+                                                                    start_part_b_minus.intersection(activities_minus),
+                                                                    end_part_a_minus.intersection(activities_minus), sup,
+                                                                    max_flow_graph_minus,
+                                                                    feat_scores_togg)
+                            # cost_seq_M = dfg_functions.cost_seq_minus(nx_graph_minus, A.intersection(activitiesM),
+                            #                                     B.intersection(activitiesM),
+                            #                                     self.edge_trace_map_plus,
+                            #                                     self.edge_trace_map_minus,
+                            #                                     self.similarity_matrix,
+                            #                                     start_B_M.intersection(activitiesM),
+                            #                                     end_A_M.intersection(activitiesM), sup, fM,
+                            #                                     feat_scores_togg)
+                            cut.append(((part_a, part_b), 'seq', cost_seq_plus, cost_seq_minus,
+                                        cost_seq_plus - ratio * size_par * cost_seq_minus,
+                                        fit_seq))
+                    #####################################################################
 
                     #####################################################################
-                    # seq check
-                if "seq" in cut_types:
-                    fit_seq = dfg_functions.fit_seq(log_variants, part_a, part_b)
-                    if fit_seq > 0.0:
-                        cost_seq_plus = dfg_functions.cost_seq(nx_graph, part_a, part_b, start_part_b, end_part_a, sup,
-                                                               max_flow_graph, feat_scores)
-                        cost_seq_minus = dfg_functions.cost_seq(nx_graph_minus, part_a.intersection(activities_minus),
-                                                                part_b.intersection(activities_minus),
-                                                                start_part_b_minus.intersection(activities_minus),
-                                                                end_part_a_minus.intersection(activities_minus), sup,
-                                                                max_flow_graph_minus,
-                                                                feat_scores_togg)
-                        # cost_seq_M = dfg_functions.cost_seq_minus(nx_graph_minus, A.intersection(activitiesM),
-                        #                                     B.intersection(activitiesM),
-                        #                                     self.edge_trace_map_plus,
-                        #                                     self.edge_trace_map_minus,
-                        #                                     self.similarity_matrix,
-                        #                                     start_B_M.intersection(activitiesM),
-                        #                                     end_A_M.intersection(activitiesM), sup, fM,
-                        #                                     feat_scores_togg)
-                        cut.append(((part_a, part_b), 'seq', cost_seq_plus, cost_seq_minus,
-                                    cost_seq_plus - ratio * size_par * cost_seq_minus,
-                                    fit_seq))
-                #####################################################################
+                    # xor check
+                    if "exc" in cut_types:
+                        fit_exc = dfg_functions.fit_exc(log_variants, part_a, part_b)
+                        if fit_exc > 0.0:
+                            cost_exc_plus = dfg_functions.cost_exc(nx_graph, part_a, part_b, feat_scores)
+                            cost_exc_minus = dfg_functions.cost_exc(nx_graph_minus, part_a.intersection(activities_minus),
+                                                                    part_b.intersection(activities_minus), feat_scores)
+                            # cost_exc_M = dfg_functions.cost_exc_minus(nx_graph_minus, A.intersection(activitiesM),
+                            #                                     B.intersection(activitiesM), self.edge_trace_map_plus, self.edge_trace_map_minus, self.similarity_matrix, feat_scores)
+                            cut.append(((part_a, part_b), 'exc', cost_exc_plus, cost_exc_minus,
+                                        cost_exc_plus - ratio * size_par * cost_exc_minus,
+                                        fit_exc))
+                    #####################################################################
 
-                #####################################################################
-                # xor check
-                if "exc" in cut_types:
-                    fit_exc = dfg_functions.fit_exc(log_variants, part_a, part_b)
-                    if fit_exc > 0.0:
-                        cost_exc_plus = dfg_functions.cost_exc(nx_graph, part_a, part_b, feat_scores)
-                        cost_exc_minus = dfg_functions.cost_exc(nx_graph_minus, part_a.intersection(activities_minus),
-                                                                part_b.intersection(activities_minus), feat_scores)
-                        # cost_exc_M = dfg_functions.cost_exc_minus(nx_graph_minus, A.intersection(activitiesM),
-                        #                                     B.intersection(activitiesM), self.edge_trace_map_plus, self.edge_trace_map_minus, self.similarity_matrix, feat_scores)
-                        cut.append(((part_a, part_b), 'exc', cost_exc_plus, cost_exc_minus,
-                                    cost_exc_plus - ratio * size_par * cost_exc_minus,
-                                    fit_exc))
-                #####################################################################
+                    #####################################################################
+                    # xor-tau check
+                    if dfg_functions.n_edges(nx_graph, {'start'}, {'end'}) > 0:
+                        missing_exc_tau_plus = 0
+                        missing_exc_tau_plus += max(0,
+                                                    sup * len(self.log) - dfg_functions.n_edges(nx_graph, {'start'},
+                                                                                                {'end'}))
 
-                #####################################################################
-                # xor-tau check
-                if dfg_functions.n_edges(nx_graph, {'start'}, {'end'}) > 0:
-                    missing_exc_tau_plus = 0
-                    missing_exc_tau_plus += max(0,
-                                                sup * len(self.log) - dfg_functions.n_edges(nx_graph, {'start'},
-                                                                                            {'end'}))
+                        missing_exc_tau_minus = 0
+                        missing_exc_tau_minus += max(0,
+                                                    sup * len(self.log_minus) - dfg_functions.n_edges(nx_graph_minus,
+                                                                                                    {'start'}, {'end'}))
 
-                    missing_exc_tau_minus = 0
-                    missing_exc_tau_minus += max(0,
-                                                 sup * len(self.log_minus) - dfg_functions.n_edges(nx_graph_minus,
-                                                                                                   {'start'}, {'end'}))
+                        cost_exc_tau_plus = missing_exc_tau_plus
+                        cost_exc_tau_minus = missing_exc_tau_minus
+                        cut.append(((part_a.union(part_b), set()), 'exc2', cost_exc_tau_plus, cost_exc_tau_minus,
+                                    cost_exc_tau_plus - ratio * size_par * cost_exc_tau_minus, 1))
+                    #####################################################################
 
-                    cost_exc_tau_plus = missing_exc_tau_plus
-                    cost_exc_tau_minus = missing_exc_tau_minus
-                    cut.append(((part_a.union(part_b), set()), 'exc2', cost_exc_tau_plus, cost_exc_tau_minus,
-                                cost_exc_tau_plus - ratio * size_par * cost_exc_tau_minus, 1))
-                #####################################################################
-
-                #####################################################################
-                # parallel check
-                if "par" in cut_types:
-                    cost_par_plus = dfg_functions.cost_par(nx_graph, part_a.intersection(activities_minus),
-                                                           part_b.intersection(activities_minus),
-                                                           sup, feat_scores)
-                    cost_par_minus = dfg_functions.cost_par(nx_graph_minus, part_a.intersection(activities_minus),
+                    #####################################################################
+                    # parallel check
+                    if "par" in cut_types:
+                        cost_par_plus = dfg_functions.cost_par(nx_graph, part_a.intersection(activities_minus),
                                                             part_b.intersection(activities_minus),
                                                             sup, feat_scores)
-                    cut.append(((part_a, part_b), 'par', cost_par_plus, cost_par_minus,
-                                cost_par_plus - ratio * size_par * cost_par_minus, 1))
-                #####################################################################
+                        cost_par_minus = dfg_functions.cost_par(nx_graph_minus, part_a.intersection(activities_minus),
+                                                                part_b.intersection(activities_minus),
+                                                                sup, feat_scores)
+                        cut.append(((part_a, part_b), 'par', cost_par_plus, cost_par_minus,
+                                    cost_par_plus - ratio * size_par * cost_par_minus, 1))
+                    #####################################################################
 
-                #####################################################################
-                # loop check
-                if "loop" in cut_types:
-                    fit_loop = dfg_functions.fit_loop(log_variants, part_a, part_b, end_part_a, start_part_a)
-                    if fit_loop > 0.0:
-                        cost_loop_plus = dfg_functions.cost_loop(nx_graph, part_a, part_b, sup, start_part_a,
-                                                                 end_part_a, input_part_b,
-                                                                 output_part_b, feat_scores)
-                        cost_loop_minus = dfg_functions.cost_loop(nx_graph_minus, part_a, part_b, sup,
-                                                                  start_part_a_minus, end_part_a_minus,
-                                                                  input_part_b_minus,
-                                                                  output_part_b_minus, feat_scores)
-                        # cost_loop_M = dfg_functions.cost_loop_minus(nx_graph_minus, A, B, self.edge_trace_map_plus, self.edge_trace_map_minus, self.similarity_matrix, sup, start_A_M, end_A_M, input_B_M,
-                        #                                       output_B_M, feat_scores)
+                    #####################################################################
+                    # loop check
+                    if "loop" in cut_types:
+                        fit_loop = dfg_functions.fit_loop(log_variants, part_a, part_b, end_part_a, start_part_a)
+                        if fit_loop > 0.0:
+                            cost_loop_plus = dfg_functions.cost_loop(nx_graph, part_a, part_b, sup, start_part_a,
+                                                                    end_part_a, input_part_b,
+                                                                    output_part_b, feat_scores)
+                            cost_loop_minus = dfg_functions.cost_loop(nx_graph_minus, part_a, part_b, sup,
+                                                                    start_part_a_minus, end_part_a_minus,
+                                                                    input_part_b_minus,
+                                                                    output_part_b_minus, feat_scores)
+                            # cost_loop_M = dfg_functions.cost_loop_minus(nx_graph_minus, A, B, self.edge_trace_map_plus, self.edge_trace_map_minus, self.similarity_matrix, sup, start_A_M, end_A_M, input_B_M,
+                            #                                       output_B_M, feat_scores)
 
-                        if cost_loop_plus is not False:
-                            cut.append(((part_a, part_b), 'loop', cost_loop_plus, cost_loop_minus,
-                                        cost_loop_plus - ratio * size_par * cost_loop_minus, fit_loop))
-
+                            if cost_loop_plus is not False:
+                                cut.append(((part_a, part_b), 'loop', cost_loop_plus, cost_loop_minus,
+                                            cost_loop_plus - ratio * size_par * cost_loop_minus, fit_loop))
+                
             sorted_cuts = sorted(cut, key=lambda x: (
                 x[4], x[2], ['exc', 'exc2', 'seq', 'par', 'loop', 'loop_tau'].index(x[1]),
                 -(len(x[0][0]) * len(x[0][1]) / (len(x[0][0]) + len(x[0][1])))))
+                
             if len(sorted_cuts) != 0:
                 cut = sorted_cuts[0]
             else:
                 cut = ('none', 'none', 'none', 'none', 'none', 'none')
-        start_time = time.time()
+            
+
         if cut[1] == 'par':
             self.detected_cut = 'parallel'
             self.split_and_create_subtree('par', cut, activity_key, parameters, sup, ratio, size_par)
@@ -280,8 +287,6 @@ class SubtreePlain:
             self.split_and_create_subtree('loop_tau', cut, activity_key, parameters, sup, ratio, size_par)
         elif cut[1] == 'none':
             self.detected_cut = 'flower'
-        elapsed_time = time.time() - start_time
-        print(f"splitting time: {elapsed_time}")
 
     def evaluate_start_end_loop_tau(self, start_acts_plus, end_acts_plus, dfg_plus, dfg_minus, sup, ratio, size_par):
         cut = []
@@ -315,18 +320,18 @@ class SubtreePlain:
                              self.counts,
                              self.recursion_depth + 1,
                              self.noise_threshold, sup, ratio, size_par,
-                             parameters))
+                             parameters, parallel=self.parallel))
 
 
 def make_tree(log, log_minus, master_dfg, initial_dfg, initial_start_activities, initial_end_activities,
               similarity_matrix,
               edge_trace_map_plus, edge_trace_map_minus,
               c, recursion_depth, noise_threshold, sup=None, ratio=None,
-              size_par=None, parameters=None):
+              size_par=None, parameters=None, parallel=False):
     tree = SubtreePlain(log, log_minus, master_dfg, initial_dfg, initial_start_activities,
                         initial_end_activities, similarity_matrix, edge_trace_map_plus, edge_trace_map_minus,
                         c, recursion_depth, noise_threshold, sup, ratio, size_par,
-                        parameters)
+                        parameters, parallel=parallel)
 
     return tree
 
@@ -376,3 +381,10 @@ def get_start_activities_from_dfg_with_artificial_start(dfg, activities):
 
 def get_end_activities_from_dfg_with_artificial_end(dfg, activities):
     return set(s for s, t in dfg if (s in activities and (t == 'end')))
+
+
+def assert_ne(a, b):
+    if a != b:
+        print(a, " != ", b)
+        return True
+    return False

@@ -6,12 +6,13 @@ use rayon::prelude::*;
 
 use crate::PyGraph;
 
+
+pub type CutEvaluations<'a> = Vec<((HashSet<&'a str>, HashSet<&'a str>), String, f64, f64, f64, f64)>;
+
 #[pyfunction]
-pub fn evaluate_cuts(cuts: Vec<(HashSet<&str>, HashSet<&str>, HashSet<&str>)>, dfg: HashMap<(&str, &str), f64>, dfg_minus: HashMap<(&str, &str), f64>, nx_graph: PyGraph, nx_graph_minus: PyGraph, max_flow_graph: HashMap<(&str, &str), f64>, max_flow_graph_minus: HashMap<(&str, &str), f64>, activities_minus: HashSet<&str>, log_variants: HashMap<Vec<&str>, f64>, log_length: f64, log_minus_length: f64, feat_scores: HashMap<(&str, &str), f64>, feat_scores_toggle: HashMap<(&str, &str), f64>, sup: f64, ratio: f64, size_par: f64) {
-    let empty_set = HashSet::new();
+pub fn evaluate_cuts<'a>(cuts: Vec<(HashSet<&'a str>, HashSet<&'a str>, HashSet<&str>)>, dfg: HashMap<(&str, &str), f64>, dfg_minus: HashMap<(&str, &str), f64>, nx_graph: PyGraph, nx_graph_minus: PyGraph, max_flow_graph: HashMap<(&str, &str), f64>, max_flow_graph_minus: HashMap<(&str, &str), f64>, activities_minus: HashSet<&str>, log_variants: HashMap<Vec<&str>, f64>, log_length: f64, log_minus_length: f64, feat_scores: HashMap<(&str, &str), f64>, feat_scores_toggle: HashMap<(&str, &str), f64>, sup: f64, ratio: f64, size_par: f64) -> CutEvaluations<'a> {
     cuts.par_iter().flat_map(|(part_a, part_b, cut_types)| {
         let start_and_end_set = HashSet::from(["start", "end"]);
-        let mut part_a_union_part_b = None;
         let part_a = part_a - &start_and_end_set;
         let part_b = part_b - &start_and_end_set;
         let mut evaluations = vec![];
@@ -34,7 +35,7 @@ pub fn evaluate_cuts(cuts: Vec<(HashSet<&str>, HashSet<&str>, HashSet<&str>)>, d
                 let cost_seq_plus = cost_seq(&nx_graph, &part_a, &part_b, &start_part_b, &end_part_a, sup, &max_flow_graph, &feat_scores);
                 let cost_seq_minus = cost_seq(&nx_graph_minus, &activities_minus_in_part_a, &activities_minus_in_part_b, &activities_minus_in_start_part_b_minus, &activities_minus_in_end_part_a_minus, sup, &max_flow_graph_minus, &feat_scores_toggle);
 
-                let seq_evaluation = CutEvaluation::new(&part_a, &part_b, CutType::Sequence, cost_seq_plus, cost_seq_minus, calculate_cost(cost_seq_plus, cost_seq_minus, ratio, size_par), fit_seq);
+                let seq_evaluation = ((part_a.clone(), part_b.clone()), "seq".to_string(), cost_seq_plus, cost_seq_minus, calculate_cost(cost_seq_plus, cost_seq_minus, ratio, size_par), fit_seq);
                 evaluations.push(seq_evaluation);
             }
         }
@@ -46,7 +47,7 @@ pub fn evaluate_cuts(cuts: Vec<(HashSet<&str>, HashSet<&str>, HashSet<&str>)>, d
                 let cost_exc_plus = cost_exc(&nx_graph, &part_a, &part_b);
                 let cost_exc_minus = cost_exc(&nx_graph_minus, &activities_minus_in_part_a, &activities_minus_in_part_b);
                 
-                let exc_evaluation = CutEvaluation::new(&part_a, &part_b, CutType::ExclusiveChoice, cost_exc_plus, cost_exc_minus, calculate_cost(cost_exc_plus, cost_exc_minus, ratio, size_par), fit_exc);
+                let exc_evaluation = ((part_a.clone(), part_b.clone()), "exc".to_string(), cost_exc_plus, cost_exc_minus, calculate_cost(cost_exc_plus, cost_exc_minus, ratio, size_par), fit_exc);
                 evaluations.push(exc_evaluation);
             }
         }
@@ -55,16 +56,16 @@ pub fn evaluate_cuts(cuts: Vec<(HashSet<&str>, HashSet<&str>, HashSet<&str>)>, d
         if start_to_end_num > 0.0 {
             let missing_exc_tau_plus = f64::max(0.0, sup * log_length - start_to_end_num);
             let missing_exc_tau_minus = f64::max(0.0, sup * log_minus_length - node_to_node_num(&nx_graph_minus, "start", "end"));
-            part_a_union_part_b = Some(&part_a | &part_b);
-            let xor_tau_evaluation = CutEvaluation::new(part_a_union_part_b.as_ref().unwrap(), &empty_set, CutType::ExclusiveChoiceTau, missing_exc_tau_plus, missing_exc_tau_minus, calculate_cost(missing_exc_tau_plus, missing_exc_tau_minus, ratio, size_par), 1.0);
+            let part_a_union_part_b = &part_a | &part_b;
+            let xor_tau_evaluation = ((part_a_union_part_b, HashSet::new()), "exc2".to_string(), missing_exc_tau_plus, missing_exc_tau_minus, calculate_cost(missing_exc_tau_plus, missing_exc_tau_minus, ratio, size_par), 1.0);
             evaluations.push(xor_tau_evaluation);
         }
 
         if cut_types.contains("par") {
-            let cost_par_plus = cost_par(&nx_graph, &part_a, &part_b, sup);
+            let cost_par_plus = cost_par(&nx_graph, &activities_minus_in_part_a, &activities_minus_in_part_b, sup);
             let cost_par_minus = cost_par(&nx_graph_minus, &activities_minus_in_part_a, &activities_minus_in_part_b, sup);
 
-            let par_evaluation = CutEvaluation::new(&part_a, &part_b, CutType::Parallel, cost_par_plus, cost_par_minus, calculate_cost(cost_par_plus, cost_par_minus, ratio, size_par), 1.0);
+            let par_evaluation = ((part_a.clone(), part_b.clone()), "par".to_string(), cost_par_plus, cost_par_minus, calculate_cost(cost_par_plus, cost_par_minus, ratio, size_par), 1.0);
             evaluations.push(par_evaluation);
         }
 
@@ -72,26 +73,24 @@ pub fn evaluate_cuts(cuts: Vec<(HashSet<&str>, HashSet<&str>, HashSet<&str>)>, d
             let fit_loop = fit_loop(&log_variants, &part_a, &part_b, &end_part_a, &start_part_a);
             if fit_loop > 0.0 {
                 if let Some(cost_loop_plus) = cost_loop(&nx_graph, &part_a, &part_b, &start_part_a, &end_part_a, &input_part_b, &output_part_b, sup) {
-                    let cost_loop_minus = cost_loop(&nx_graph, &part_a, &part_b, &start_part_a_minus, &end_part_a_minus, &input_part_b_minus, &output_part_b_minus, sup).unwrap();
+                    let cost_loop_minus = cost_loop(&nx_graph_minus, &part_a, &part_b, &start_part_a_minus, &end_part_a_minus, &input_part_b_minus, &output_part_b_minus, sup).unwrap_or(0.0);
 
-                    let loop_evaluation = CutEvaluation::new(&part_a, &part_b, CutType::Loop, cost_loop_plus, cost_loop_minus, calculate_cost(cost_loop_plus, cost_loop_minus, ratio, size_par), fit_loop);
+                    let loop_evaluation = ((part_a.clone(), part_b.clone()), "loop".to_string(), cost_loop_plus, cost_loop_minus, calculate_cost(cost_loop_plus, cost_loop_minus, ratio, size_par), fit_loop);
                     evaluations.push(loop_evaluation);
                 }
             }
         }
 
         evaluations
-    });
-
-    ()
+    }).collect::<Vec<_>>()
 }
 
 fn get_activity_sets<'a>(dfg: &HashMap<(&'a str, &'a str), f64>, activitiy_set_1: &HashSet<&str>, activitiy_set_2: &HashSet<&str>) -> (HashSet<&'a str>, HashSet<&'a str>, HashSet<&'a str>, HashSet<&'a str>, HashSet<&'a str>) {
-    let start_activities_in_set_1 = get_start_activities_from_dfg_with_artificial_start(&dfg, &activitiy_set_1);
-    let end_activities_in_set_1 = get_end_activities_from_dfg_with_artificial_end(&dfg, &activitiy_set_1);
-    let start_activities_in_set_2 = get_start_activities_from_dfg_with_artificial_start(&dfg, &activitiy_set_2);
-    let input_activities_in_set_2 = get_input_activities_from_dfg(&dfg, &activitiy_set_2);
-    let output_activities_in_set_2 = get_output_activities_from_dfg(&dfg, &activitiy_set_2);
+    let start_activities_in_set_1 = get_start_activities_from_dfg_with_artificial_start(dfg, activitiy_set_1);
+    let end_activities_in_set_1 = get_end_activities_from_dfg_with_artificial_end(dfg, activitiy_set_1);
+    let start_activities_in_set_2 = get_start_activities_from_dfg_with_artificial_start(dfg, activitiy_set_2);
+    let input_activities_in_set_2 = get_input_activities_from_dfg(dfg, activitiy_set_2);
+    let output_activities_in_set_2 = get_output_activities_from_dfg(dfg, activitiy_set_2);
 
     (start_activities_in_set_1, end_activities_in_set_1, start_activities_in_set_2, input_activities_in_set_2, output_activities_in_set_2)
 }
@@ -115,10 +114,10 @@ fn get_output_activities_from_dfg<'a>(dfg: &HashMap<(&'a str, &'a str), f64>, ac
 fn fit_seq(log_variants: &HashMap<Vec<&str>, f64>, part_a: &HashSet<&str>, part_b: &HashSet<&str>) -> f64 {
     let mut count = 0.0;
 
-    for trace in log_variants.keys() {
+    for (trace, trace_num) in log_variants {
         for pair in trace.windows(2) {
             if part_b.contains(&pair[0]) && part_a.contains(&pair[1]) {
-                count += log_variants[trace];
+                count += trace_num;
                 break;
             }
         }
@@ -131,10 +130,10 @@ fn fit_seq(log_variants: &HashMap<Vec<&str>, f64>, part_a: &HashSet<&str>, part_
 fn fit_exc(log_variants: &HashMap<Vec<&str>, f64>, part_a: &HashSet<&str>, part_b: &HashSet<&str>) -> f64 {
     let mut count = 0.0;
 
-    for trace in log_variants.keys() {
+    for (trace, trace_num) in log_variants {
         let activities = trace.iter().copied().collect::<HashSet<_>>();
         if activities.is_subset(part_a) || activities.is_subset(part_b) {
-            count += log_variants[trace];
+            count += trace_num;
         }       
     }
 
@@ -146,7 +145,7 @@ fn fit_loop(log_variants: &HashMap<Vec<&str>, f64>, part_a: &HashSet<&str>, part
     let mut count = 0.0;
 
     for (trace, &trace_num) in log_variants {
-        if trace.len() == 0 {
+        if trace.is_empty() {
             continue;
         }
 
@@ -179,7 +178,7 @@ fn fit_loop(log_variants: &HashMap<Vec<&str>, f64>, part_a: &HashSet<&str>, part
     fit
 }
 
-fn edge_boundary_directed_num<'a>(graph: &'a PyGraph, node_set_1: &HashSet<&str>, node_set_2: &HashSet<&str>) -> f64 {
+fn edge_boundary_directed_num(graph: &PyGraph, node_set_1: &HashSet<&str>, node_set_2: &HashSet<&str>) -> f64 {
     let di_graph = &graph.graph;
 
    di_graph.edge_references().filter(|edge| {
@@ -190,7 +189,7 @@ fn edge_boundary_directed_num<'a>(graph: &'a PyGraph, node_set_1: &HashSet<&str>
     }).map(|edge| edge.weight()).sum()
 }
 
-fn node_to_nodes_num<'a>(graph: &'a PyGraph, node_weight: &str, node_set: &HashSet<&str>) -> f64 {
+fn node_to_nodes_num(graph: &PyGraph, node_weight: &str, node_set: &HashSet<&str>) -> f64 {
     let di_graph = &graph.graph;
 
     di_graph.edges(graph[node_weight]).filter(|edge| {
@@ -199,7 +198,7 @@ fn node_to_nodes_num<'a>(graph: &'a PyGraph, node_weight: &str, node_set: &HashS
     }).map(|edge| edge.weight()).sum()
 }
 
-fn nodes_to_node_num<'a>(graph: &'a PyGraph, node_set: &HashSet<&str>, node_weight: &str) -> f64 {
+fn nodes_to_node_num(graph: &PyGraph, node_set: &HashSet<&str>, node_weight: &str) -> f64 {
     let di_graph = &graph.graph;
 
     di_graph.edges_directed(graph[node_weight], Direction::Incoming).filter(|edge| {
@@ -208,7 +207,7 @@ fn nodes_to_node_num<'a>(graph: &'a PyGraph, node_set: &HashSet<&str>, node_weig
     }).map(|edge| edge.weight()).sum()
 }
 
-fn node_to_node_num<'a>(graph: &'a PyGraph, node_weight_1: &str, node_weight_2: &str) -> f64 {
+fn node_to_node_num(graph: &PyGraph, node_weight_1: &str, node_weight_2: &str) -> f64 {
     let di_graph = &graph.graph;
 
     di_graph.edges_connecting(graph[node_weight_1], graph[node_weight_2]).map(|edge| edge.weight()).sum()
@@ -216,15 +215,15 @@ fn node_to_node_num<'a>(graph: &'a PyGraph, node_weight_1: &str, node_weight_2: 
 
 fn cost_seq(graph: &PyGraph, part_a: &HashSet<&str>, part_b: &HashSet<&str>, start_set: &HashSet<&str>, end_set: &HashSet<&str>, sup: f64, flow: &HashMap<(&str, &str), f64>, scores: &HashMap<(&str, &str), f64>) -> f64 {
     // deviating edges
-    let cost_1 = edge_boundary_directed_num(graph, part_b, part_a) as f64;
+    let cost_1 = edge_boundary_directed_num(graph, part_b, part_a);
 
     let mut cost_2 = 0.0;
     let part_a_out_degree = graph.nodes_out_degree(part_a);
     let part_b_out_degree = graph.nodes_out_degree(part_b);
-    let part_a_and_part_b_out_degree = part_a_out_degree * part_b_out_degree;
+    let part_a_and_part_b_out_degree = part_a_out_degree + part_b_out_degree;
     for &node_a in part_a {
         for &node_b in part_b {
-            let cost = f64::max(0.0, scores[&(node_a, node_b)] * graph.out_degree(node_a) * sup * (graph.out_degree(node_b) / part_a_and_part_b_out_degree) - flow[&(node_a, node_b)]);
+            let cost = f64::max(0.0, scores.get(&(node_a, node_b)).unwrap_or(&1.0) * graph.out_degree(node_a) * sup * (graph.out_degree(node_b) / part_a_and_part_b_out_degree) - flow[&(node_a, node_b)]);
             cost_2 += cost;
         }
     }
@@ -237,18 +236,18 @@ fn cost_seq(graph: &PyGraph, part_a: &HashSet<&str>, part_b: &HashSet<&str>, sta
         for &start_node in start_set {
             let num_end_node_to_part_b_with_end = node_to_nodes_num(graph, end_node, &part_b_with_end);
             let num_part_a_with_start_to_start_node = nodes_to_node_num(graph, &part_a_with_start, start_node);
-            let cost = f64::max(0.0, scores[&(end_node, start_node)] * num_end_node_to_part_b_with_end * sup * num_part_a_with_start_to_start_node / part_a_with_start_to_part_b_with_end_num) - node_to_node_num(graph, end_node, start_node);
+            let cost = f64::max(0.0, scores.get(&(end_node, start_node)).unwrap_or(&1.0) * num_end_node_to_part_b_with_end * sup * num_part_a_with_start_to_start_node / part_a_with_start_to_part_b_with_end_num - node_to_node_num(graph, end_node, start_node));
             cost_3 += cost;
         }
     }
-
+    
     cost_1 + cost_2 + cost_3
 }
 
 fn cost_exc(graph: &PyGraph, part_a: &HashSet<&str>, part_b: &HashSet<&str>) -> f64 {
     let cost_1 = edge_boundary_directed_num(graph, part_a, part_b);
     let cost_2 = edge_boundary_directed_num(graph, part_b, part_a);
-    cost_1 + cost_2 as f64
+    cost_1 + cost_2
 }
 
 fn cost_par(graph: &PyGraph, part_a: &HashSet<&str>, part_b: &HashSet<&str>, sup: f64) -> f64 {
@@ -320,46 +319,12 @@ fn cost_loop(graph: &PyGraph, part_a: &HashSet<&str>, part_b: &HashSet<&str>, st
     Some(cost_1 + cost_2 + cost_3 + cost_4 + cost_5)
 }
 
-fn toggle<'a>(scores: &HashMap<(&'a str, &'a str), f64>) -> HashMap<(&'a str, &'a str), f64> {
-    scores.iter().map(|(e, score)| {
-        let s = 1.0 / *score;
-        (e.clone(), s)
-    }).collect()
-}
-
-#[derive(Debug)]
-struct CutEvaluation<'a, 'b> {
-    part_a: &'a HashSet<&'b str>,
-    part_b: &'a HashSet<&'b str>,
-    cut_type: CutType,
-    cost_plus: f64,
-    cost_minus: f64,
-    cost: f64,
-    fit: f64,
-}
-
-impl<'a, 'b> CutEvaluation<'a, 'b> {
-    fn new(part_a: &'a HashSet<&'b str>, part_b: &'a HashSet<&'b str>, cut_type: CutType, cost_plus: f64, cost_minus: f64, cost: f64, fit: f64) -> Self {
-        Self {
-            part_a,
-            part_b,
-            cut_type,
-            cost_plus,
-            cost_minus,
-            cost,
-            fit,
-        }
-    }
-}
-
-#[derive(Debug)]
-enum CutType {
-    Sequence,
-    ExclusiveChoice,
-    ExclusiveChoiceTau,
-    Parallel,
-    Loop,
-}
+// fn toggle<'a>(scores: &HashMap<(&'a str, &'a str), f64>) -> HashMap<(&'a str, &'a str), f64> {
+//     scores.iter().map(|(e, score)| {
+//         let s = 1.0 / *score;
+//         (e.clone(), s)
+//     }).collect()
+// }
 
 fn calculate_cost(cost_plus: f64, cost_minus: f64, ratio: f64, size_par: f64) -> f64 {
     cost_plus - ratio * size_par * cost_minus

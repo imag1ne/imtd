@@ -55,7 +55,8 @@ def apply_bi(logp: Union[EventLog, EventStream, pd.DataFrame],
              variant=DEFAULT_VARIANT_LOG,
              sup= None,
              ratio = None,
-             size_par = None) -> Tuple[PetriNet, Marking, Marking]:
+             size_par = None,
+             parallel = False) -> Tuple[PetriNet, Marking, Marking]:
     """
     Apply the chosen IM algorithm to a log obtaining a Petri net along with an initial and final marking
 
@@ -81,7 +82,7 @@ def apply_bi(logp: Union[EventLog, EventStream, pd.DataFrame],
         Final marking
     """
     return exec_utils.get_variant(variant).apply(logp,logm, similarity_matrix,
-                                                 parameters=parameters, sup= sup, ratio = ratio, size_par = size_par)
+                                                 parameters=parameters, sup= sup, ratio = ratio, size_par = size_par, parallel = parallel)
 
 
 

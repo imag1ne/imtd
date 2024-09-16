@@ -37,7 +37,7 @@ impl PyGraph<'_> {
     }
 
     pub fn nodes_out_degree(&self, node_weights: &HashSet<&str>) -> f64 {
-        node_weights.iter().map(|node_weight| self.out_degree(*node_weight)).sum()
+        node_weights.iter().map(|node_weight| self.out_degree(node_weight)).sum()
     }
 }
 

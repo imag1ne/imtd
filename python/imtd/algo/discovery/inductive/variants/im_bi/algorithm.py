@@ -55,7 +55,7 @@ class Parameters(Enum):
     TAU_LOOP_KEY = "tau_loop"
 
 
-def apply(logp, logm, similarity_matrix, parameters=None,sup= None, ratio = None, size_par = None):
+def apply(logp, logm, similarity_matrix, parameters=None,sup= None, ratio = None, size_par = None, parallel = False):
     """
     Apply the IM algorithm to a log obtaining a Petri net along with an initial and final marking
 
@@ -82,7 +82,7 @@ def apply(logp, logm, similarity_matrix, parameters=None,sup= None, ratio = None
         from pm4py.statistics.variants.pandas import get as variants_get
 
 
-    net, initial_marking, final_marking = tree_to_petri.apply(apply_tree(logp,logm, similarity_matrix, parameters,sup= sup, ratio = ratio, size_par = size_par))
+    net, initial_marking, final_marking = tree_to_petri.apply(apply_tree(logp,logm, similarity_matrix, parameters,sup= sup, ratio = ratio, size_par = size_par, parallel = parallel))
     return net, initial_marking, final_marking
 
 
@@ -113,7 +113,7 @@ def apply_variants(variants, parameters=None):
 
 
 @deprecation.deprecated('2.2.10', '3.0.0', details='use newer IM implementation (IM_CLEAN)')
-def apply_tree(logp, logm, similarity_matrix, parameters=None, sup= None, ratio = None, size_par = None):
+def apply_tree(logp, logm, similarity_matrix, parameters=None, sup= None, ratio = None, size_par = None, parallel = False):
     """
     Apply the IM algorithm to a log obtaining a process tree
 
@@ -168,7 +168,7 @@ def apply_tree(logp, logm, similarity_matrix, parameters=None, sup= None, ratio 
     edge_trace_map_minus = edge_trace_mapping(log_m_art)
     sub = subtree.make_tree(logp,logm, dfgp, dfgp, start_activitiesp,
                             end_activitiesp, similarity_matrix, edge_trace_map_plus, edge_trace_map_minus,
-                             c, recursion_depth,0.0, sup, ratio, size_par, parameters)
+                             c, recursion_depth,0.0, sup, ratio, size_par, parameters, parallel=parallel)
 
     process_tree = get_tree_repr_implain.get_repr(sub, 0, contains_empty_traces=contains_empty_traces)
     # Ensures consistency to the parent pointers in the process tree
