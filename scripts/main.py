@@ -1,8 +1,8 @@
 import argparse
+import csv
 import pm4py
 import numpy as np
 import time
-import pprint
 from pathlib import Path
 
 from imtd import inductive_miner, Optimzation_Goals
@@ -69,7 +69,26 @@ def main():
     pm4py.vis.save_vis_petri_net(net, initial_marking, final_marking, pnsvg_file_name)
 
     mes = Optimzation_Goals.apply_petri(logP, logM, net, initial_marking, final_marking)
-    pprint.pprint(mes)
+    mes_filename = output + "/mes_r" + str(ratio) + "_s" + str(support) + ".csv"
+    result = [
+        ('acc', mes['acc']),
+        ('F1', mes['F1']),
+        ('precision', mes['precision']),
+        ('fitP', mes['fitP']),
+        ('fitM', mes['fitM']),
+        ('acc_perf', mes['acc_perf']),
+        ('F1_perf', mes['F1_perf']),
+        ('acc_ML', mes['acc_ML']),
+        ('prc_ML', mes['prc_ML']),
+        ('rec_ML', mes['rec_ML']),
+        ('elapsed', "{} ({} s)".format(elapsed_time_str, elapsed_time))
+    ]
+    with open(mes_filename, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerows(result)
+
+    for m, v in result:
+        print(m, ":", v)
 
 if __name__ == "__main__":
     main()
