@@ -1,7 +1,6 @@
 import collections
 import copy
-import time
-from typing import Optional
+from typing import Any, Optional
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Set
 from dataclasses import dataclass, field
@@ -79,8 +78,8 @@ class SubtreePlain:
     end_activities_minus: Mapping[str, int] = field(init=False)
 
     similarity_matrix: NDArray[numpy.float64]
-    edge_trace_map_plus: defaultdict[tuple[str, str], list[int]]
-    edge_trace_map_minus: defaultdict[tuple[str, str], list[int]]
+    case_id_trace_index_map: defaultdict[tuple[str, str], list[int]]
+    case_id_trace_index_map_minus: defaultdict[tuple[str, str], list[int]]
 
     counts: Counts
     recursion_depth: int
@@ -90,12 +89,14 @@ class SubtreePlain:
     ratio: float = 0.0
     size_par: float = 1.0
 
-    parameters: Optional = None
+    parameters: Optional[Mapping[Any, Any]] = None
 
     parallel: bool = False
 
     dfg: Optional[Mapping[tuple[str, str], int]] = None
     activities: Optional[Set[str]] = None
+    edge_case_id_map: Optional[Mapping[tuple[str, str], Set[str]]] = None
+    edge_case_id_map_minus: Optional[Mapping[tuple[str, str], Set[str]]] = None
     detected_cut: Optional[str] = field(init=False, default=None)
     children: list = field(init=False, default_factory=list)
 
@@ -110,6 +111,9 @@ class SubtreePlain:
         self.start_activities_minus = start_activities_filter.get_start_activities(self.log_minus)
         self.end_activities = end_activities_filter.get_end_activities(self.log)
         self.end_activities_minus = end_activities_filter.get_end_activities(self.log_minus)
+        self.edge_case_id_map = self.edge_case_id_map or dfg_functions.edge_case_id_mapping(self.log_art)
+        self.edge_case_id_map_minus = self.edge_case_id_map_minus or dfg_functions.edge_case_id_mapping(self.log_minus_art)
+
         self.detect_cut()
 
     def detect_cut(self, _second_iteration=False):
@@ -178,13 +182,13 @@ class SubtreePlain:
                                                                     end_part_a_minus.intersection(activities_minus), sup,
                                                                     max_flow_graph_minus,
                                                                     feat_scores_togg)
-                            # cost_seq_M = dfg_functions.cost_seq_minus(nx_graph_minus, A.intersection(activitiesM),
-                            #                                     B.intersection(activitiesM),
-                            #                                     self.edge_trace_map_plus,
-                            #                                     self.edge_trace_map_minus,
+                            # cost_seq_minus = dfg_functions.cost_seq_minus(nx_graph_minus, part_a.intersection(activities_minus), part_b.intersection(activities_minus),
+                            #                                     self.case_id_trace_index_map, self.case_id_trace_index_map_minus,
+                            #                                     self.edge_case_id_map, self.edge_case_id_map_minus,
                             #                                     self.similarity_matrix,
-                            #                                     start_B_M.intersection(activitiesM),
-                            #                                     end_A_M.intersection(activitiesM), sup, fM,
+                            #                                     start_part_b_minus.intersection(activities_minus), end_part_a_minus.intersection(activities_minus),
+                            #                                     sup,
+                            #                                     max_flow_graph_minus,
                             #                                     feat_scores_togg)
                             cut.append(((part_a, part_b), 'seq', cost_seq_plus, cost_seq_minus,
                                         cost_seq_plus - ratio * size_par * cost_seq_minus,
@@ -199,8 +203,12 @@ class SubtreePlain:
                             cost_exc_plus = dfg_functions.cost_exc(nx_graph, part_a, part_b, feat_scores)
                             cost_exc_minus = dfg_functions.cost_exc(nx_graph_minus, part_a.intersection(activities_minus),
                                                                     part_b.intersection(activities_minus), feat_scores)
-                            # cost_exc_M = dfg_functions.cost_exc_minus(nx_graph_minus, A.intersection(activitiesM),
-                            #                                     B.intersection(activitiesM), self.edge_trace_map_plus, self.edge_trace_map_minus, self.similarity_matrix, feat_scores)
+                            # cost_exc_minus = dfg_functions.cost_exc_minus(nx_graph_minus,
+                            #                                               part_a.intersection(activities_minus), part_b.intersection(activities_minus),
+                            #                                               self.case_id_trace_index_map, self.case_id_trace_index_map_minus,
+                            #                                               self.edge_case_id_map, self.edge_case_id_map_minus,
+                            #                                               self.similarity_matrix,
+                            #                                               feat_scores)
                             cut.append(((part_a, part_b), 'exc', cost_exc_plus, cost_exc_minus,
                                         cost_exc_plus - ratio * size_par * cost_exc_minus,
                                         fit_exc))
@@ -250,8 +258,15 @@ class SubtreePlain:
                                                                     start_part_a_minus, end_part_a_minus,
                                                                     input_part_b_minus,
                                                                     output_part_b_minus, feat_scores)
-                            # cost_loop_M = dfg_functions.cost_loop_minus(nx_graph_minus, A, B, self.edge_trace_map_plus, self.edge_trace_map_minus, self.similarity_matrix, sup, start_A_M, end_A_M, input_B_M,
-                            #                                       output_B_M, feat_scores)
+                            # cost_loop_minus = dfg_functions.cost_loop_minus(nx_graph_minus,
+                            #                                                 part_a, part_b,
+                            #                                                 self.case_id_trace_index_map, self.case_id_trace_index_map_minus,
+                            #                                                 self.edge_case_id_map, self.edge_case_id_map_minus,
+                            #                                                 self.similarity_matrix,
+                            #                                                 sup,
+                            #                                                 start_part_a_minus, end_part_a_minus,
+                            #                                                 input_part_b_minus, output_part_b_minus,
+                            #                                                 feat_scores)
 
                             if cost_loop_plus is not False:
                                 cut.append(((part_a, part_b), 'loop', cost_loop_plus, cost_loop_minus,
@@ -315,8 +330,8 @@ class SubtreePlain:
         for new_log, new_log_minus in new_logs:
             self.children.append(
                 SubtreePlain(new_log, new_log_minus, self.master_dfg, self.initial_dfg, self.initial_start_activities,
-                             self.initial_end_activities, self.similarity_matrix, self.edge_trace_map_plus,
-                             self.edge_trace_map_minus,
+                             self.initial_end_activities, self.similarity_matrix, self.case_id_trace_index_map,
+                             self.case_id_trace_index_map_minus,
                              self.counts,
                              self.recursion_depth + 1,
                              self.noise_threshold, sup, ratio, size_par,
@@ -325,11 +340,11 @@ class SubtreePlain:
 
 def make_tree(log, log_minus, master_dfg, initial_dfg, initial_start_activities, initial_end_activities,
               similarity_matrix,
-              edge_trace_map_plus, edge_trace_map_minus,
+              case_id_trace_index_map_plus, case_id_trace_index_map_minus,
               c, recursion_depth, noise_threshold, sup=None, ratio=None,
               size_par=None, parameters=None, parallel=False):
     tree = SubtreePlain(log, log_minus, master_dfg, initial_dfg, initial_start_activities,
-                        initial_end_activities, similarity_matrix, edge_trace_map_plus, edge_trace_map_minus,
+                        initial_end_activities, similarity_matrix, case_id_trace_index_map_plus, case_id_trace_index_map_minus,
                         c, recursion_depth, noise_threshold, sup, ratio, size_par,
                         parameters, parallel=parallel)
 

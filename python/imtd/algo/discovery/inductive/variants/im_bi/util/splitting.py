@@ -14,6 +14,7 @@
     You should have received a copy of the GNU General Public License
     along with PM4Py.  If not, see <https://www.gnu.org/licenses/>.
 """
+from collections.abc import Iterable
 from pm4py.objects.log import obj
 from pm4py.util import xes_constants
 from pm4py.algo.conformance.alignments.dfg import algorithm as dfg_alignment
@@ -55,12 +56,13 @@ def split(cut_type, cut, l, activity_key):
     if cut_type == 'seq':
 
         for trace in l:
+            case_id = trace.attributes[case_id_key]
             cost = []
             for i in range(0,len(trace)+1):
                 cost.append(sum([x['concept:name'] in cut[1] for x in trace[0:i]]) + sum([x['concept:name'] in cut[0] for x in trace[i:]]))
             split_point = cost.index(min(cost))
-            trace_A = [x for x in trace[0:split_point] if x['concept:name'] in cut[0]]
-            trace_B = [x for x in trace[split_point:] if x['concept:name'] in cut[1]]
+            trace_A = new_trace(case_id, (x for x in trace[0:split_point] if x['concept:name'] in cut[0]))
+            trace_B = new_trace(case_id, (x for x in trace[split_point:] if x['concept:name'] in cut[1]))
             LA.append(trace_A)
             LB.append(trace_B)
 
@@ -68,8 +70,9 @@ def split(cut_type, cut, l, activity_key):
 
     if cut_type == 'exc':
         for tr in l:
+            case_id = tr.attributes[case_id_key]
             if len(tr)==0:
-                T = obj.Trace()
+                T = new_trace(case_id)
                 LB.append(T)
                 continue
             A_count = 0
@@ -80,21 +83,22 @@ def split(cut_type, cut, l, activity_key):
                 elif ev[activity_key] in cut[1]:
                     B_count += 1
             if A_count >= B_count:
-                T = obj.Trace()
+                T = new_trace(case_id)
                 for ev in tr:
                     if ev[activity_key] in cut[0]:
                         T.append(ev)
                 LA.append(T)
             elif A_count < B_count:
-                T = obj.Trace()
+                T = new_trace(case_id)
                 for ev in tr:
                     if ev[activity_key] in cut[1]:
                         T.append(ev)
                 LB.append(T)
     if cut_type == 'par':
         for tr in l:
-            T1 = obj.Trace()
-            T2 = obj.Trace()
+            case_id = tr.attributes[case_id_key]
+            T1 = new_trace(case_id)
+            T2 = new_trace(case_id)
             for ev in tr:
                 if ev[activity_key] in cut[0]:
                     T1.append(ev)
@@ -105,22 +109,23 @@ def split(cut_type, cut, l, activity_key):
 
     if cut_type == 'loop':
         counter = 0
-        LA = obj.EventLog()
-        LB = obj.EventLog()
+        # LA = obj.EventLog()
+        # LB = obj.EventLog()
         for tr in l:
+            case_id = tr.attributes[case_id_key]
             flagA = False
             flagB = False
             if len(tr) == 0:
-                T = obj.Trace()
+                T = new_trace(case_id)
                 LA.append(T)
                 continue
             if tr[0][activity_key] in cut[0]:
                 flagA = True
             elif tr[0][activity_key] in cut[1]:
                 flagB = True
-                T = obj.Trace()
+                T = new_trace(case_id)
                 LA.append(T)
-            T = obj.Trace()
+            T = new_trace(case_id)
             for ind, ev in enumerate(tr):
                 if flagA == True:
                     T.append(ev)
@@ -131,61 +136,63 @@ def split(cut_type, cut, l, activity_key):
                             # T.attributes[case_id_key] = counter
                             LA.append(T)
                             # counter += 1
-                            T = obj.Trace()
+                            T = new_trace(case_id)
                     elif ind == len(tr) - 1:
-                        T.attributes[case_id_key] = counter
+                        # T.attributes[case_id_key] = counter
                         LA.append(T)
                         counter +=1
-                        T = obj.Trace()
+                        T = new_trace(case_id)
                 elif flagB == True:
                     T.append(ev)
                     if ind != len(tr) - 1:
                         if tr[ind+1][activity_key] in cut[0]:
                             flagA = True
                             flagB = False
-                            T.attributes[case_id_key] = counter
+                            # T.attributes[case_id_key] = counter
                             LB.append(T)
                             counter +=1
-                            T = obj.Trace()
+                            T = new_trace(case_id)
                     elif ind == len(tr) - 1:
                         # T.attributes[case_id_key] = counter
                         LB.append(T)
                         # counter += 1
-                        T = obj.Trace()
+                        T = new_trace(case_id)
                         LA.append(T)
     if cut_type == 'loop1':
         for tr in l:
+            case_id = tr.attributes[case_id_key]
             if len(tr)==0:
-                T = obj.Trace()
+                T = new_trace(case_id)
                 LA.append(T)
             elif len(tr)==1:
-                T = obj.Trace()
+                T = new_trace(case_id)
                 T.append(tr[0])
                 LA.append(T)
             else:
-                T = obj.Trace()
+                T = new_trace(case_id)
                 T.append(tr[0])
                 LA.append(T)
                 for x in range(1,len(tr)):
-                    T = obj.Trace()
+                    T = new_trace(case_id)
                     LB.append(T)
 
     if cut_type == 'loop_tau':
         st_acts = cut[0]
         en_acts = cut[1]
         for tr in l:
+            case_id = tr.attributes[case_id_key]
             if len(tr)==0:
-                T = obj.Trace()
+                T = new_trace(case_id)
                 LA.append(T)
             else:
-                T = obj.Trace()
+                T = new_trace(case_id)
                 for i,ev in enumerate(tr):
                     T.append(ev)
                     if i<(len(tr)-1):
                         if (tr[i][activity_key] in en_acts) and (tr[i+1][activity_key] in st_acts):
                             LA.append(T)
-                            T = obj.Trace()
-                            LB.append(obj.Trace())
+                            T = new_trace(case_id)
+                            LB.append(new_trace(case_id))
                     else:
                             LA.append(T)
 
@@ -321,3 +328,10 @@ def split_parallel_infrequent(cut, l, activity_key):
             lo.append(new_trace)
         new_logs.append(lo)
     return new_logs
+
+
+def new_trace(case_id: str, iterable: Iterable[obj.Event]=()) -> obj.Trace:
+    trace = obj.Trace(iterable)
+    trace.attributes['concept:name'] = case_id
+    
+    return trace

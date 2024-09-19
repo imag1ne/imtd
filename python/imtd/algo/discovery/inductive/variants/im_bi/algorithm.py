@@ -19,7 +19,7 @@ import pkgutil
 from pm4py import util as pmutil
 from pm4py.algo.discovery.dfg.variants import native as dfg_inst
 
-from imtd.algo.analysis.dfg_functions import edge_trace_mapping
+from imtd.algo.analysis.dfg_functions import case_id_trace_index_mapping
 from imtd.algo.discovery.inductive.util import tree_consistency
 from imtd.algo.discovery.inductive.util.petri_el_count import Counts
 from imtd.algo.discovery.inductive.variants.im_bi.data_structures import subtree_plain as subtree
@@ -164,10 +164,10 @@ def apply_tree(logp, logm, similarity_matrix, parameters=None, sup= None, ratio 
     recursion_depth = 0
     log_art = artificial_start_end(copy.deepcopy(logp))
     log_m_art = artificial_start_end(copy.deepcopy(logm))
-    edge_trace_map_plus = edge_trace_mapping(log_art)
-    edge_trace_map_minus = edge_trace_mapping(log_m_art)
+    case_id_trace_index_map_plus = case_id_trace_index_mapping(log_art)
+    case_id_trace_index_map_minus = case_id_trace_index_mapping(log_m_art)
     sub = subtree.make_tree(logp,logm, dfgp, dfgp, start_activitiesp,
-                            end_activitiesp, similarity_matrix, edge_trace_map_plus, edge_trace_map_minus,
+                            end_activitiesp, similarity_matrix, case_id_trace_index_map_plus, case_id_trace_index_map_minus,
                              c, recursion_depth,0.0, sup, ratio, size_par, parameters, parallel=parallel)
 
     process_tree = get_tree_repr_implain.get_repr(sub, 0, contains_empty_traces=contains_empty_traces)

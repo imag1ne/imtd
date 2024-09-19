@@ -107,16 +107,18 @@ def cost_seq(net, A, B, start_set, end_set, sup, flow, scores):
 
     return c1 + c2 + c3
 
-def deviating_edges_cost(net, A, B, edge_trace_map_p, edge_trace_map_m, similarity_matrix):
+def deviating_edges_cost(net, A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_case_id_map_p, edge_case_id_map_m, similarity_matrix):
     deviating_edges = list(nx.edge_boundary(net, B, A, data='weight', default=1))
     c = 0
     for u, v, weight in deviating_edges:
         deviating_edge = (u, v)
-        traces_p = edge_trace_map_p[deviating_edge]
-        traces_m = edge_trace_map_m[deviating_edge]
+        traces_p = [case_id_trace_index_map_p[case_id] for case_id in edge_case_id_map_p[deviating_edge]]
+        traces_m = (case_id_trace_index_map_m[case_id] for case_id in edge_case_id_map_m[deviating_edge])
         assert u in B
         assert v in A
-        assert len(traces_m) == weight
+        # if len(edge_case_id_map_m[deviating_edge]) != weight:
+        #     print(f"len(edge_case_id_map_m[deviating_edge]) != weight: {len(edge_case_id_map_m[deviating_edge])} != {weight}")
+        #     assert len(edge_case_id_map_m[deviating_edge]) == weight
 
         for trace_idx in traces_m:
             mask = np.ones(len(similarity_matrix), dtype=bool)
@@ -124,15 +126,15 @@ def deviating_edges_cost(net, A, B, edge_trace_map_p, edge_trace_map_m, similari
             similarities = similarity_matrix[mask, trace_idx]
             if len(similarities) ==0:
                 continue
-            w = np.max(similarity_matrix[mask, trace_idx])
+            w = np.max(similarities)
             c += w
 
     return c
 
 
-def cost_seq_minus(net, A, B, edge_trace_map_p, edge_trace_map_m, similarity_matrix, start_set, end_set, sup, flow, scores):
+def cost_seq_minus(net, A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m, similarity_matrix, start_set, end_set, sup, flow, scores):
     # deviating edges
-    c1 = deviating_edges_cost(net, A, B, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
+    c1 = deviating_edges_cost(net, A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
 
     c2 = 0
     for x in A:
@@ -200,9 +202,9 @@ def cost_exc(net, A, B, scores):
     c1 += n_edges(net, B, A, scaling=scores_toggle)
     return c1
 
-def cost_exc_minus(net, A, B, edge_trace_map_p, edge_trace_map_m, similarity_matrix, scores):
-    c = deviating_edges_cost(net, A, B, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
-    c += deviating_edges_cost(net, B, A, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
+def cost_exc_minus(net, A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m, similarity_matrix, scores):
+    c = deviating_edges_cost(net, A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
+    c += deviating_edges_cost(net, B, A, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
     return c
 
 
@@ -275,7 +277,7 @@ def cost_loop(net, A, B, sup, start_A, end_A, input_B, output_B, scores):
 
     return c1 + c2 + c3 + c4 + c5
 
-def cost_loop_minus(net, A, B,edge_trace_map_p, edge_trace_map_m, similarity_matrix, sup, start_A, end_A, input_B, output_B, scores):
+def cost_loop_minus(net, A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m, similarity_matrix, sup, start_A, end_A, input_B, output_B, scores):
     scores_toggle = toggle(scores)
 
     flag_loop_valid = False
@@ -292,12 +294,12 @@ def cost_loop_minus(net, A, B,edge_trace_map_p, edge_trace_map_m, similarity_mat
     AetoBi_P = n_edges(net, end_A, input_B)
     M_P = max(BotoAs_P, AetoBi_P)
 
-    c1 = deviating_edges_cost(net, {'start'}, B, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
-    c1 += deviating_edges_cost(net, B, {'end'}, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
+    c1 = deviating_edges_cost(net, {'start'}, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
+    c1 += deviating_edges_cost(net, B, {'end'}, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
 
-    c2 = deviating_edges_cost(net, A - end_A, B, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
+    c2 = deviating_edges_cost(net, A - end_A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
 
-    c3 = deviating_edges_cost(net, B, A - start_A, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
+    c3 = deviating_edges_cost(net, B, A - start_A, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
 
     c4 = 0
     if len(output_B) != 0:
@@ -550,21 +552,23 @@ def generate_nx_graph_from_dfg(dfg):
         G.add_edge(edge[0], edge[1])
     return G
 
-def edge_trace_mapping(event_log: EventLog) -> defaultdict[tuple[str, str], list[int]]:
-    edge_trace_map = defaultdict(list)
+
+def edge_case_id_mapping(event_log: EventLog) -> defaultdict[tuple[str, str], set[str]]:
+    edge_case_id_map = defaultdict(set)
     window = 1
     activity_key = DEFAULT_NAME_KEY
-    for trace_idx, trace in enumerate(event_log):
+    for trace in event_log:
+        case_id = trace.attributes['concept:name']
         for i in range(window, len(trace)):
             edge = (trace[i - window][activity_key], trace[i][activity_key])
-            edge_trace_map[edge].append(trace_idx)
+            edge_case_id_map[edge].add(case_id)
 
-    return edge_trace_map
+    return edge_case_id_map
 
 def case_id_trace_index_mapping(event_log: EventLog) -> Mapping[str, int]:
     case_id_trace_index_map = {}
     for trace_idx, trace in enumerate(event_log):
-        case_id = trace[0]['case:concept:name']
+        case_id = trace.attributes['concept:name']
         case_id_trace_index_map[case_id] = trace_idx
 
     return case_id_trace_index_map
@@ -574,7 +578,7 @@ def generate_nx_graph_from_event_log(event_log):
     activity_key = DEFAULT_NAME_KEY
     edge_case_id_map = defaultdict(set)
 
-    l = list(map((lambda trace: [(trace[i - window][activity_key], trace[i][activity_key], trace[i]['case:concept:name'])
+    l = list(map((lambda trace: [(trace[i - window][activity_key], trace[i][activity_key], trace.attributes['concept:name'])
                             for i in range(window, len(trace))]), event_log))
     dfg = Counter([(source, target) for trace in l for source, target, _ in trace])
 
