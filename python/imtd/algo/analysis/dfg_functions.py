@@ -107,7 +107,9 @@ def cost_seq(net, A, B, start_set, end_set, sup, flow, scores):
 
     return c1 + c2 + c3
 
-def deviating_edges_cost(net, A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_case_id_map_p, edge_case_id_map_m, similarity_matrix):
+
+def deviating_edges_cost(net, A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_case_id_map_p,
+                         edge_case_id_map_m, similarity_matrix):
     deviating_edges = nx.edge_boundary(net, B, A, data='weight', default=1)
     c = 0
     for u, v, _ in deviating_edges:
@@ -119,7 +121,7 @@ def deviating_edges_cost(net, A, B, case_id_trace_index_map_p, case_id_trace_ind
             mask = np.ones(len(similarity_matrix), dtype=bool)
             mask[traces_p] = False
             similarities = similarity_matrix[mask, trace_idx]
-            if len(similarities) ==0:
+            if len(similarities) == 0:
                 continue
             w = np.max(similarities)
             c += w
@@ -127,9 +129,11 @@ def deviating_edges_cost(net, A, B, case_id_trace_index_map_p, case_id_trace_ind
     return c
 
 
-def cost_seq_minus(net, A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m, similarity_matrix, start_set, end_set, sup, flow, scores):
+def cost_seq_minus(net, A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m,
+                   similarity_matrix, start_set, end_set, sup, flow, scores):
     # deviating edges
-    c1 = deviating_edges_cost(net, A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
+    c1 = deviating_edges_cost(net, A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p,
+                              edge_trace_map_m, similarity_matrix)
 
     c2 = 0
     for x in A:
@@ -197,9 +201,13 @@ def cost_exc(net, A, B, scores):
     c1 += n_edges(net, B, A, scaling=scores_toggle)
     return c1
 
-def cost_exc_minus(net, A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m, similarity_matrix, scores):
-    c = deviating_edges_cost(net, A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
-    c += deviating_edges_cost(net, B, A, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
+
+def cost_exc_minus(net, A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m,
+                   similarity_matrix, scores):
+    c = deviating_edges_cost(net, A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p,
+                             edge_trace_map_m, similarity_matrix)
+    c += deviating_edges_cost(net, B, A, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p,
+                              edge_trace_map_m, similarity_matrix)
     return c
 
 
@@ -272,7 +280,9 @@ def cost_loop(net, A, B, sup, start_A, end_A, input_B, output_B, scores):
 
     return c1 + c2 + c3 + c4 + c5
 
-def cost_loop_minus(net, A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m, similarity_matrix, sup, start_A, end_A, input_B, output_B, scores):
+
+def cost_loop_minus(net, A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m,
+                    similarity_matrix, sup, start_A, end_A, input_B, output_B, scores):
     scores_toggle = toggle(scores)
 
     flag_loop_valid = False
@@ -289,12 +299,16 @@ def cost_loop_minus(net, A, B, case_id_trace_index_map_p, case_id_trace_index_ma
     AetoBi_P = n_edges(net, end_A, input_B)
     M_P = max(BotoAs_P, AetoBi_P)
 
-    c1 = deviating_edges_cost(net, {'start'}, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
-    c1 += deviating_edges_cost(net, B, {'end'}, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
+    c1 = deviating_edges_cost(net, {'start'}, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p,
+                              edge_trace_map_m, similarity_matrix)
+    c1 += deviating_edges_cost(net, B, {'end'}, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p,
+                               edge_trace_map_m, similarity_matrix)
 
-    c2 = deviating_edges_cost(net, A - end_A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
+    c2 = deviating_edges_cost(net, A - end_A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p,
+                              edge_trace_map_m, similarity_matrix)
 
-    c3 = deviating_edges_cost(net, B, A - start_A, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_trace_map_p, edge_trace_map_m, similarity_matrix)
+    c3 = deviating_edges_cost(net, B, A - start_A, case_id_trace_index_map_p, case_id_trace_index_map_m,
+                              edge_trace_map_p, edge_trace_map_m, similarity_matrix)
 
     c4 = 0
     if len(output_B) != 0:
@@ -321,6 +335,7 @@ def cost_loop_minus(net, A, B, case_id_trace_index_map_p, case_id_trace_index_ma
         return False
 
     return c1 + c2 + c3 + c4 + c5
+
 
 def visualisecpcm(cuts, ratio, size_par):
     cp = [x[2] for x in cuts]
@@ -560,6 +575,7 @@ def edge_case_id_mapping(event_log: EventLog) -> defaultdict[tuple[str, str], se
 
     return edge_case_id_map
 
+
 def case_id_trace_index_mapping(event_log: EventLog) -> Mapping[str, int]:
     case_id_trace_index_map = {}
     for trace_idx, trace in enumerate(event_log):
@@ -568,12 +584,14 @@ def case_id_trace_index_mapping(event_log: EventLog) -> Mapping[str, int]:
 
     return case_id_trace_index_map
 
+
 def generate_nx_graph_from_event_log(event_log):
     window = 1
     activity_key = DEFAULT_NAME_KEY
     edge_case_id_map = defaultdict(set)
 
-    l = list(map((lambda trace: [(trace[i - window][activity_key], trace[i][activity_key], trace.attributes['concept:name'])
+    l = list(
+        map((lambda trace: [(trace[i - window][activity_key], trace[i][activity_key], trace.attributes['concept:name'])
                             for i in range(window, len(trace))]), event_log))
     dfg = Counter([(source, target) for trace in l for source, target, _ in trace])
 
