@@ -23,8 +23,6 @@ from imtd.algo.discovery.dfg import algorithm as dfg_discovery
 
 from imtd import evaluate_cuts, find_possible_partitions
 
-import time
-
 
 def artificial_start_end(event_log: EventLog) -> EventLog:
     """Add artificial start and end events to the traces in the event log.
@@ -114,7 +112,8 @@ class SubtreePlain:
         self.end_activities = end_activities_filter.get_end_activities(self.log)
         self.end_activities_minus = end_activities_filter.get_end_activities(self.log_minus)
         self.edge_case_id_map = self.edge_case_id_map or dfg_functions.edge_case_id_mapping(self.log_art)
-        self.edge_case_id_map_minus = self.edge_case_id_map_minus or dfg_functions.edge_case_id_mapping(self.log_minus_art)
+        self.edge_case_id_map_minus = self.edge_case_id_map_minus or dfg_functions.edge_case_id_mapping(
+            self.log_minus_art)
 
         self.detect_cut()
 
@@ -153,23 +152,18 @@ class SubtreePlain:
                                                    size_par)
             ratio_backup = ratio
 
-            start = time.time()
-            possible_partitions = dfg_functions.find_possible_partitions(nx_graph)
-            elapsed = time.time() - start
-            print("Elapsed time(p): ", elapsed)
-
-            nx_graph_2 = generate_nx_graph_from_dfg(dfg_art)
-            start = time.time()
-            possible_partitions = find_possible_partitions(nx_graph_2)
-            elapsed = time.time() - start
-            print("Elapsed time(r): ", elapsed)
+            possible_partitions = find_possible_partitions(nx_graph)
 
             if self.parallel:
-                cut += evaluate_cuts(possible_partitions, dfg_art, dfg_art_minus, nx_graph, nx_graph_minus, max_flow_graph, max_flow_graph_minus, activities_minus, log_variants, len(self.log), len(self.log_minus), feat_scores, feat_scores_togg, sup, ratio, size_par)
+                cut += evaluate_cuts(possible_partitions, dfg_art, dfg_art_minus, nx_graph, nx_graph_minus,
+                                     max_flow_graph, max_flow_graph_minus, activities_minus, log_variants,
+                                     len(self.log), len(self.log_minus), feat_scores, feat_scores_togg, sup, ratio,
+                                     size_par)
             else:
                 for part_a, part_b, cut_types in possible_partitions:
                     part_a, part_b = part_a - {'start', 'end'}, part_b - {'start', 'end'}
-                    start_part_a, end_part_a, start_part_b, input_part_b, output_part_b = get_activity_sets(dfg_art, part_a,
+                    start_part_a, end_part_a, start_part_b, input_part_b, output_part_b = get_activity_sets(dfg_art,
+                                                                                                            part_a,
                                                                                                             part_b)
                     start_part_a_minus, end_part_a_minus, start_part_b_minus, input_part_b_minus, output_part_b_minus = get_activity_sets(
                         dfg_art_minus, part_a, part_b)
@@ -185,12 +179,15 @@ class SubtreePlain:
                     if "seq" in cut_types:
                         fit_seq = dfg_functions.fit_seq(log_variants, part_a, part_b)
                         if fit_seq > 0.0:
-                            cost_seq_plus = dfg_functions.cost_seq(nx_graph, part_a, part_b, start_part_b, end_part_a, sup,
-                                                                max_flow_graph, feat_scores)
-                            cost_seq_minus = dfg_functions.cost_seq(nx_graph_minus, part_a.intersection(activities_minus),
+                            cost_seq_plus = dfg_functions.cost_seq(nx_graph, part_a, part_b, start_part_b, end_part_a,
+                                                                   sup,
+                                                                   max_flow_graph, feat_scores)
+                            cost_seq_minus = dfg_functions.cost_seq(nx_graph_minus,
+                                                                    part_a.intersection(activities_minus),
                                                                     part_b.intersection(activities_minus),
                                                                     start_part_b_minus.intersection(activities_minus),
-                                                                    end_part_a_minus.intersection(activities_minus), sup,
+                                                                    end_part_a_minus.intersection(activities_minus),
+                                                                    sup,
                                                                     max_flow_graph_minus,
                                                                     feat_scores_togg)
                             # cost_seq_minus = dfg_functions.cost_seq_minus(nx_graph_minus, part_a.intersection(activities_minus), part_b.intersection(activities_minus),
@@ -212,7 +209,8 @@ class SubtreePlain:
                         fit_exc = dfg_functions.fit_exc(log_variants, part_a, part_b)
                         if fit_exc > 0.0:
                             cost_exc_plus = dfg_functions.cost_exc(nx_graph, part_a, part_b, feat_scores)
-                            cost_exc_minus = dfg_functions.cost_exc(nx_graph_minus, part_a.intersection(activities_minus),
+                            cost_exc_minus = dfg_functions.cost_exc(nx_graph_minus,
+                                                                    part_a.intersection(activities_minus),
                                                                     part_b.intersection(activities_minus), feat_scores)
                             # cost_exc_minus = dfg_functions.cost_exc_minus(nx_graph_minus,
                             #                                               part_a.intersection(activities_minus), part_b.intersection(activities_minus),
@@ -235,8 +233,9 @@ class SubtreePlain:
 
                         missing_exc_tau_minus = 0
                         missing_exc_tau_minus += max(0,
-                                                    sup * len(self.log_minus) - dfg_functions.n_edges(nx_graph_minus,
-                                                                                                    {'start'}, {'end'}))
+                                                     sup * len(self.log_minus) - dfg_functions.n_edges(nx_graph_minus,
+                                                                                                       {'start'},
+                                                                                                       {'end'}))
 
                         cost_exc_tau_plus = missing_exc_tau_plus
                         cost_exc_tau_minus = missing_exc_tau_minus
@@ -248,8 +247,8 @@ class SubtreePlain:
                     # parallel check
                     if "par" in cut_types:
                         cost_par_plus = dfg_functions.cost_par(nx_graph, part_a.intersection(activities_minus),
-                                                            part_b.intersection(activities_minus),
-                                                            sup, feat_scores)
+                                                               part_b.intersection(activities_minus),
+                                                               sup, feat_scores)
                         cost_par_minus = dfg_functions.cost_par(nx_graph_minus, part_a.intersection(activities_minus),
                                                                 part_b.intersection(activities_minus),
                                                                 sup, feat_scores)
@@ -263,12 +262,12 @@ class SubtreePlain:
                         fit_loop = dfg_functions.fit_loop(log_variants, part_a, part_b, end_part_a, start_part_a)
                         if fit_loop > 0.0:
                             cost_loop_plus = dfg_functions.cost_loop(nx_graph, part_a, part_b, sup, start_part_a,
-                                                                    end_part_a, input_part_b,
-                                                                    output_part_b, feat_scores)
+                                                                     end_part_a, input_part_b,
+                                                                     output_part_b, feat_scores)
                             cost_loop_minus = dfg_functions.cost_loop(nx_graph_minus, part_a, part_b, sup,
-                                                                    start_part_a_minus, end_part_a_minus,
-                                                                    input_part_b_minus,
-                                                                    output_part_b_minus, feat_scores)
+                                                                      start_part_a_minus, end_part_a_minus,
+                                                                      input_part_b_minus,
+                                                                      output_part_b_minus, feat_scores)
                             # cost_loop_minus = dfg_functions.cost_loop_minus(nx_graph_minus,
                             #                                                 part_a, part_b,
                             #                                                 self.case_id_trace_index_map, self.case_id_trace_index_map_minus,
@@ -282,16 +281,15 @@ class SubtreePlain:
                             if cost_loop_plus is not False:
                                 cut.append(((part_a, part_b), 'loop', cost_loop_plus, cost_loop_minus,
                                             cost_loop_plus - ratio * size_par * cost_loop_minus, fit_loop))
-                
+
             sorted_cuts = sorted(cut, key=lambda x: (
                 x[4], x[2], ['exc', 'exc2', 'seq', 'par', 'loop', 'loop_tau'].index(x[1]),
                 -(len(x[0][0]) * len(x[0][1]) / (len(x[0][0]) + len(x[0][1])))))
-                
+
             if len(sorted_cuts) != 0:
                 cut = sorted_cuts[0]
             else:
                 cut = ('none', 'none', 'none', 'none', 'none', 'none')
-            
 
         if cut[1] == 'par':
             self.detected_cut = 'parallel'
@@ -355,7 +353,8 @@ def make_tree(log, log_minus, master_dfg, initial_dfg, initial_start_activities,
               c, recursion_depth, noise_threshold, sup=None, ratio=None,
               size_par=None, parameters=None, parallel=False):
     tree = SubtreePlain(log, log_minus, master_dfg, initial_dfg, initial_start_activities,
-                        initial_end_activities, similarity_matrix, case_id_trace_index_map_plus, case_id_trace_index_map_minus,
+                        initial_end_activities, similarity_matrix, case_id_trace_index_map_plus,
+                        case_id_trace_index_map_minus,
                         c, recursion_depth, noise_threshold, sup, ratio, size_par,
                         parameters, parallel=parallel)
 
@@ -367,7 +366,7 @@ def calculate_missing_loop(trace_num, start_activities, end_activities, dfg, sup
     for x in start_activities:
         for y in end_activities:
             n = max(0, trace_num * sup * (start_activities[x] / sum(start_activities.values())) * (
-                        end_activities[y] / sum(end_activities.values())) - dfg[(y, x)])
+                    end_activities[y] / sum(end_activities.values())) - dfg[(y, x)])
             missing_loop += n
     return missing_loop
 
@@ -407,10 +406,3 @@ def get_start_activities_from_dfg_with_artificial_start(dfg, activities):
 
 def get_end_activities_from_dfg_with_artificial_end(dfg, activities):
     return set(s for s, t in dfg if (s in activities and (t == 'end')))
-
-
-def assert_ne(a, b):
-    if a != b:
-        print(a, " != ", b)
-        return True
-    return False
