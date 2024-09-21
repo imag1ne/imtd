@@ -21,7 +21,9 @@ from pm4py.objects.log.obj import EventLog, Event
 from imtd.algo.analysis import dfg_functions
 from imtd.algo.discovery.dfg import algorithm as dfg_discovery
 
-from imtd import evaluate_cuts
+from imtd import evaluate_cuts, find_possible_partitions
+
+import time
 
 
 def artificial_start_end(event_log: EventLog) -> EventLog:
@@ -151,7 +153,16 @@ class SubtreePlain:
                                                    size_par)
             ratio_backup = ratio
 
+            start = time.time()
             possible_partitions = dfg_functions.find_possible_partitions(nx_graph)
+            elapsed = time.time() - start
+            print("Elapsed time(p): ", elapsed)
+
+            nx_graph_2 = generate_nx_graph_from_dfg(dfg_art)
+            start = time.time()
+            possible_partitions = find_possible_partitions(nx_graph_2)
+            elapsed = time.time() - start
+            print("Elapsed time(r): ", elapsed)
 
             if self.parallel:
                 cut += evaluate_cuts(possible_partitions, dfg_art, dfg_art_minus, nx_graph, nx_graph_minus, max_flow_graph, max_flow_graph_minus, activities_minus, log_variants, len(self.log), len(self.log_minus), feat_scores, feat_scores_togg, sup, ratio, size_par)

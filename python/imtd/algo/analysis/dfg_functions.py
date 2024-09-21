@@ -108,17 +108,12 @@ def cost_seq(net, A, B, start_set, end_set, sup, flow, scores):
     return c1 + c2 + c3
 
 def deviating_edges_cost(net, A, B, case_id_trace_index_map_p, case_id_trace_index_map_m, edge_case_id_map_p, edge_case_id_map_m, similarity_matrix):
-    deviating_edges = list(nx.edge_boundary(net, B, A, data='weight', default=1))
+    deviating_edges = nx.edge_boundary(net, B, A, data='weight', default=1)
     c = 0
-    for u, v, weight in deviating_edges:
+    for u, v, _ in deviating_edges:
         deviating_edge = (u, v)
         traces_p = [case_id_trace_index_map_p[case_id] for case_id in edge_case_id_map_p[deviating_edge]]
         traces_m = (case_id_trace_index_map_m[case_id] for case_id in edge_case_id_map_m[deviating_edge])
-        assert u in B
-        assert v in A
-        # if len(edge_case_id_map_m[deviating_edge]) != weight:
-        #     print(f"len(edge_case_id_map_m[deviating_edge]) != weight: {len(edge_case_id_map_m[deviating_edge])} != {weight}")
-        #     assert len(edge_case_id_map_m[deviating_edge]) == weight
 
         for trace_idx in traces_m:
             mask = np.ones(len(similarity_matrix), dtype=bool)
