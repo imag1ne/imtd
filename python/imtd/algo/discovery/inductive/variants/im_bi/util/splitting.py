@@ -24,7 +24,7 @@ from pm4py.objects.log import obj as log_instance
 def project(log, A, B):
     new_log = log_instance.EventLog()
     deep_log = log.__deepcopy__()
-    for tr in range(0,len(deep_log)):
+    for tr in range(0, len(deep_log)):
         trace = log_instance.Trace()
         event = log_instance.Event()
         event['concept:name'] = 'start'
@@ -45,33 +45,28 @@ def project(log, A, B):
     return new_log
 
 
-
-
 def split(cut_type, cut, l, activity_key):
-    counter = 0
     case_id_key = xes_constants.DEFAULT_TRACEID_KEY
     LA = obj.EventLog()
     LB = obj.EventLog()
 
     if cut_type == 'seq':
-
         for trace in l:
             case_id = trace.attributes[case_id_key]
             cost = []
-            for i in range(0,len(trace)+1):
-                cost.append(sum([x['concept:name'] in cut[1] for x in trace[0:i]]) + sum([x['concept:name'] in cut[0] for x in trace[i:]]))
+            for i in range(0, len(trace) + 1):
+                cost.append(sum((x['concept:name'] in cut[1] for x in trace[0:i])) + sum(
+                    (x['concept:name'] in cut[0] for x in trace[i:])))
             split_point = cost.index(min(cost))
             trace_A = new_trace(case_id, (x for x in trace[0:split_point] if x['concept:name'] in cut[0]))
             trace_B = new_trace(case_id, (x for x in trace[split_point:] if x['concept:name'] in cut[1]))
             LA.append(trace_A)
             LB.append(trace_B)
 
-
-
     if cut_type == 'exc':
         for tr in l:
             case_id = tr.attributes[case_id_key]
-            if len(tr)==0:
+            if len(tr) == 0:
                 T = new_trace(case_id)
                 LB.append(T)
                 continue
@@ -83,17 +78,12 @@ def split(cut_type, cut, l, activity_key):
                 elif ev[activity_key] in cut[1]:
                     B_count += 1
             if A_count >= B_count:
-                T = new_trace(case_id)
-                for ev in tr:
-                    if ev[activity_key] in cut[0]:
-                        T.append(ev)
+                T = new_trace(case_id, (ev for ev in tr if ev[activity_key] in cut[0]))
                 LA.append(T)
             elif A_count < B_count:
-                T = new_trace(case_id)
-                for ev in tr:
-                    if ev[activity_key] in cut[1]:
-                        T.append(ev)
+                T = new_trace(case_id, (ev for ev in tr if ev[activity_key] in cut[1]))
                 LB.append(T)
+
     if cut_type == 'par':
         for tr in l:
             case_id = tr.attributes[case_id_key]
@@ -109,8 +99,6 @@ def split(cut_type, cut, l, activity_key):
 
     if cut_type == 'loop':
         counter = 0
-        # LA = obj.EventLog()
-        # LB = obj.EventLog()
         for tr in l:
             case_id = tr.attributes[case_id_key]
             flagA = False
@@ -125,12 +113,13 @@ def split(cut_type, cut, l, activity_key):
                 flagB = True
                 T = new_trace(case_id)
                 LA.append(T)
+
             T = new_trace(case_id)
             for ind, ev in enumerate(tr):
-                if flagA == True:
+                if flagA:
                     T.append(ev)
-                    if ind != len(tr)-1:
-                        if tr[ind+1][activity_key] in cut[1]:
+                    if ind != len(tr) - 1:
+                        if tr[ind + 1][activity_key] in cut[1]:
                             flagA = False
                             flagB = True
                             # T.attributes[case_id_key] = counter
@@ -140,17 +129,17 @@ def split(cut_type, cut, l, activity_key):
                     elif ind == len(tr) - 1:
                         # T.attributes[case_id_key] = counter
                         LA.append(T)
-                        counter +=1
+                        counter += 1
                         T = new_trace(case_id)
-                elif flagB == True:
+                elif flagB:
                     T.append(ev)
                     if ind != len(tr) - 1:
-                        if tr[ind+1][activity_key] in cut[0]:
+                        if tr[ind + 1][activity_key] in cut[0]:
                             flagA = True
                             flagB = False
                             # T.attributes[case_id_key] = counter
                             LB.append(T)
-                            counter +=1
+                            counter += 1
                             T = new_trace(case_id)
                     elif ind == len(tr) - 1:
                         # T.attributes[case_id_key] = counter
@@ -158,13 +147,14 @@ def split(cut_type, cut, l, activity_key):
                         # counter += 1
                         T = new_trace(case_id)
                         LA.append(T)
+
     if cut_type == 'loop1':
         for tr in l:
             case_id = tr.attributes[case_id_key]
-            if len(tr)==0:
+            if len(tr) == 0:
                 T = new_trace(case_id)
                 LA.append(T)
-            elif len(tr)==1:
+            elif len(tr) == 1:
                 T = new_trace(case_id)
                 T.append(tr[0])
                 LA.append(T)
@@ -172,7 +162,7 @@ def split(cut_type, cut, l, activity_key):
                 T = new_trace(case_id)
                 T.append(tr[0])
                 LA.append(T)
-                for x in range(1,len(tr)):
+                for x in range(1, len(tr)):
                     T = new_trace(case_id)
                     LB.append(T)
 
@@ -181,23 +171,23 @@ def split(cut_type, cut, l, activity_key):
         en_acts = cut[1]
         for tr in l:
             case_id = tr.attributes[case_id_key]
-            if len(tr)==0:
+            if len(tr) == 0:
                 T = new_trace(case_id)
                 LA.append(T)
             else:
                 T = new_trace(case_id)
-                for i,ev in enumerate(tr):
+                for i, ev in enumerate(tr):
                     T.append(ev)
-                    if i<(len(tr)-1):
-                        if (tr[i][activity_key] in en_acts) and (tr[i+1][activity_key] in st_acts):
+                    if i < (len(tr) - 1):
+                        if (tr[i][activity_key] in en_acts) and (tr[i + 1][activity_key] in st_acts):
                             LA.append(T)
                             T = new_trace(case_id)
                             LB.append(new_trace(case_id))
                     else:
-                            LA.append(T)
+                        LA.append(T)
 
+    return LA, LB  # new_logs is a list that contains logs
 
-    return LA,LB  # new_logs is a list that contains logs
 
 def filter_trace_on_cut_partition(trace, partition, activity_key):
     filtered_trace = obj.Trace()
@@ -215,15 +205,15 @@ def find_split_point(trace, cut_partition, start, ignore, activity_key):
     i = start
     while i < len(trace):
         if trace[i][activity_key] in cut_partition:
-            cost = cost-1
+            cost = cost - 1
         elif trace[i][activity_key] not in ignore:
             # use bool variable for the case, that the best split is before the first activity
             if i == 0:
                 possibly_best_before_first_activity = True
-            cost = cost+1
+            cost = cost + 1
         if cost <= least_cost:
             least_cost = cost
-            position_with_least_cost = i+1
+            position_with_least_cost = i + 1
         i += 1
     if possibly_best_before_first_activity and position_with_least_cost == 1:
         position_with_least_cost = 0
@@ -245,15 +235,15 @@ def split_xor_infrequent(cut, l, activity_key):
     # creating the empty L_1,...,L_n from the second code-line on page 205
     n = len(cut)
     new_logs = [obj.EventLog() for i in range(0, n)]
-    for trace in l:                                                 # for all traces
+    for trace in l:  # for all traces
         number_of_events_in_trace = 0
         index_of_cut_partition = 0
         i = 0
         # use i as index here so that we can write in L_i
-        for i in range(0, len(cut)):                                # for all cut partitions
+        for i in range(0, len(cut)):  # for all cut partitions
             temp_counter = 0
-            for event in trace:                                     # for all events in current trace
-                if event[activity_key] in cut[i]:                 # count amount of events from trace in partition
+            for event in trace:  # for all events in current trace
+                if event[activity_key] in cut[i]:  # count amount of events from trace in partition
                     temp_counter += 1
             if temp_counter > number_of_events_in_trace:
                 number_of_events_in_trace = temp_counter
@@ -273,7 +263,7 @@ def split_sequence_infrequent(cut, l, activity_key):
         split_point = 0
         # write our ignore list with all elements from past cut partitions
         if i != 0:
-            for element in cut[i-1]:
+            for element in cut[i - 1]:
                 ignore.append(element)
         for j in range(len(l)):
             trace = l[j]
@@ -330,8 +320,8 @@ def split_parallel_infrequent(cut, l, activity_key):
     return new_logs
 
 
-def new_trace(case_id: str, iterable: Iterable[obj.Event]=()) -> obj.Trace:
+def new_trace(case_id: str, iterable: Iterable[obj.Event] = ()) -> obj.Trace:
     trace = obj.Trace(iterable)
     trace.attributes['concept:name'] = case_id
-    
+
     return trace
