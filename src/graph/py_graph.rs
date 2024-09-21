@@ -1,10 +1,17 @@
-use std::{collections::{BTreeSet, HashMap, HashSet}, ops::{Deref, Index}};
+use std::{
+    collections::{BTreeSet, HashMap, HashSet},
+    ops::{Deref, Index},
+};
 
-use petgraph::{graph::{DiGraph, NodeIndex}, visit::{Dfs, EdgeRef, Reversed}, Undirected};
+use petgraph::{
+    graph::{DiGraph, NodeIndex},
+    visit::{Dfs, EdgeRef, Reversed},
+    Undirected,
+};
 use pyo3::{types::PyAnyMethods, Bound, FromPyObject, PyAny, PyResult};
 
 #[derive(Debug)]
-pub struct PyGraph<'a>{
+pub struct PyGraph<'a> {
     pub graph: DiGraph<&'a str, f64>,
     pub node_weight_index_map: HashMap<&'a str, NodeIndex>,
 }
@@ -18,11 +25,15 @@ impl<'py> FromPyObject<'py> for PyGraph<'py> {
         let mut node_weight_index_map = HashMap::new();
         for item in edges_iter {
             let (source, target, weight) = item?.extract::<(&str, &str, f64)>()?;
-            let source_idx = *node_weight_index_map.entry(source).or_insert_with(|| graph.add_node(source));
-            let target_idx = *node_weight_index_map.entry(target).or_insert_with(|| graph.add_node(target));
+            let source_idx = *node_weight_index_map
+                .entry(source)
+                .or_insert_with(|| graph.add_node(source));
+            let target_idx = *node_weight_index_map
+                .entry(target)
+                .or_insert_with(|| graph.add_node(target));
             graph.update_edge(source_idx, target_idx, weight);
         }
-        
+
         Ok(PyGraph {
             graph,
             node_weight_index_map,
@@ -37,7 +48,10 @@ impl PyGraph<'_> {
     }
 
     pub fn nodes_out_degree(&self, node_weights: &HashSet<&str>) -> f64 {
-        node_weights.iter().map(|node_weight| self.out_degree(node_weight)).sum()
+        node_weights
+            .iter()
+            .map(|node_weight| self.out_degree(node_weight))
+            .sum()
     }
 
     pub fn get_node_index(&self, node_weight: &str) -> Option<NodeIndex> {
@@ -107,9 +121,9 @@ impl<'a> PyGraph<'a> {
     pub fn ancestors(&self, node: NodeIndex) -> BTreeSet<&'a str> {
         let reversed_graph = Reversed(&self.graph);
         let mut dfs = Dfs::new(&reversed_graph, node);
-        
+
         let mut ancestors = BTreeSet::new();
-        
+
         while let Some(ancestor) = dfs.next(&reversed_graph) {
             if ancestor != node {
                 ancestors.insert(self.graph[ancestor]);
@@ -120,10 +134,15 @@ impl<'a> PyGraph<'a> {
     }
 
     pub fn all_neighbors_weights(&self, weights: &BTreeSet<&str>) -> BTreeSet<&'a str> {
-        weights.iter().flat_map(|&node_weight| {
-            let node_idx = self[node_weight];
-            self.neighbors(node_idx).map(|neighbor| self.graph[neighbor]).collect::<BTreeSet<&str>>()
-        }).collect::<BTreeSet<&str>>()
+        weights
+            .iter()
+            .flat_map(|&node_weight| {
+                let node_idx = self[node_weight];
+                self.neighbors(node_idx)
+                    .map(|neighbor| self.graph[neighbor])
+                    .collect::<BTreeSet<&str>>()
+            })
+            .collect::<BTreeSet<&str>>()
     }
 }
 

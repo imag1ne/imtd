@@ -1,15 +1,15 @@
-mod graph;
 mod algorithms;
 mod cost;
 mod distance;
+mod graph;
 mod mapping;
 
 use pyo3::prelude::*;
 
-use crate::graph::py_graph::PyGraph;
 use crate::algorithms::find_possible_partitions;
 use crate::cost::evaluate_cuts;
 use crate::distance::distance_matrix;
+use crate::graph::py_graph::PyGraph;
 use crate::mapping::edge_case_id_mapping;
 
 #[pyfunction]
