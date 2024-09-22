@@ -14,4 +14,4 @@
     You should have received a copy of the GNU General Public License
     along with PM4Py.  If not, see <https://www.gnu.org/licenses/>.
 """
-from imtd.algo.discovery.inductive.variants.im_bi.util import base_case, fall_through, get_tree_repr_implain, splitting, constants, distance
+from imtd.algo.discovery.inductive.variants.im_bi.util import base_case, fall_through, get_tree_repr_implain, splitting, constants

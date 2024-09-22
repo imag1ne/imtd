@@ -19,7 +19,6 @@ import pkgutil
 from pm4py import util as pmutil
 from pm4py.algo.discovery.dfg.variants import native as dfg_inst
 
-from imtd.algo.analysis.dfg_functions import case_id_trace_index_mapping
 from imtd.algo.discovery.inductive.util import tree_consistency
 from imtd.algo.discovery.inductive.util.petri_el_count import Counts
 from imtd.algo.discovery.inductive.variants.im_bi.data_structures import subtree_plain as subtree
@@ -55,7 +54,7 @@ class Parameters(Enum):
     TAU_LOOP_KEY = "tau_loop"
 
 
-def apply(logp, logm, similarity_matrix, parameters=None,sup= None, ratio = None, size_par = None, parallel = False):
+def apply(logp, logm, parameters=None,sup= None, ratio = None, size_par = None, parallel = False):
     """
     Apply the IM algorithm to a log obtaining a Petri net along with an initial and final marking
 
@@ -82,7 +81,7 @@ def apply(logp, logm, similarity_matrix, parameters=None,sup= None, ratio = None
         from pm4py.statistics.variants.pandas import get as variants_get
 
 
-    net, initial_marking, final_marking = tree_to_petri.apply(apply_tree(logp,logm, similarity_matrix, parameters,sup= sup, ratio = ratio, size_par = size_par, parallel = parallel))
+    net, initial_marking, final_marking = tree_to_petri.apply(apply_tree(logp,logm, parameters,sup= sup, ratio = ratio, size_par = size_par, parallel = parallel))
     return net, initial_marking, final_marking
 
 
@@ -113,7 +112,7 @@ def apply_variants(variants, parameters=None):
 
 
 @deprecation.deprecated('2.2.10', '3.0.0', details='use newer IM implementation (IM_CLEAN)')
-def apply_tree(logp, logm, similarity_matrix, parameters=None, sup= None, ratio = None, size_par = None, parallel = False):
+def apply_tree(logp, logm, parameters=None, sup= None, ratio = None, size_par = None, parallel = False):
     """
     Apply the IM algorithm to a log obtaining a process tree
 
@@ -164,10 +163,8 @@ def apply_tree(logp, logm, similarity_matrix, parameters=None, sup= None, ratio 
     recursion_depth = 0
     log_art = artificial_start_end(copy.deepcopy(logp))
     log_m_art = artificial_start_end(copy.deepcopy(logm))
-    case_id_trace_index_map_plus = case_id_trace_index_mapping(log_art)
-    case_id_trace_index_map_minus = case_id_trace_index_mapping(log_m_art)
     sub = subtree.make_tree(logp,logm, dfgp, dfgp, start_activitiesp,
-                            end_activitiesp, similarity_matrix, case_id_trace_index_map_plus, case_id_trace_index_map_minus,
+                            end_activitiesp,
                              c, recursion_depth,0.0, sup, ratio, size_par, parameters, parallel=parallel)
 
     process_tree = get_tree_repr_implain.get_repr(sub, 0, contains_empty_traces=contains_empty_traces)
