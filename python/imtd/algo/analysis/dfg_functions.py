@@ -2,7 +2,6 @@ import networkx as nx
 from collections import Counter
 import copy
 from collections import defaultdict
-from collections.abc import Mapping
 import matplotlib.pyplot as plt
 from networkx import DiGraph
 from pm4py.objects.log.obj import EventLog
@@ -574,35 +573,3 @@ def edge_case_id_mapping(event_log: EventLog) -> defaultdict[tuple[str, str], se
             edge_case_id_map[edge].add(case_id)
 
     return edge_case_id_map
-
-
-def case_id_trace_index_mapping(event_log: EventLog) -> Mapping[str, int]:
-    case_id_trace_index_map = {}
-    for trace_idx, trace in enumerate(event_log):
-        case_id = trace.attributes['concept:name']
-        case_id_trace_index_map[case_id] = trace_idx
-
-    return case_id_trace_index_map
-
-
-def generate_nx_graph_from_event_log(event_log):
-    window = 1
-    activity_key = DEFAULT_NAME_KEY
-    edge_case_id_map = defaultdict(set)
-
-    l = list(
-        map((lambda trace: [(trace[i - window][activity_key], trace[i][activity_key], trace.attributes['concept:name'])
-                            for i in range(window, len(trace))]), event_log))
-    dfg = Counter([(source, target) for trace in l for source, target, _ in trace])
-
-    for trace in l:
-        for source, target, case_id in trace:
-            edge_case_id_map[(source, target)].add(case_id)
-
-    graph = DiGraph()
-
-    graph.add_edges_from([(u, v, {'weight': w, 'case_id_set': edge_case_id_map[(u, v)]}) for (u, v), w in dfg.items()])
-
-    return graph
-
-# def dfg
