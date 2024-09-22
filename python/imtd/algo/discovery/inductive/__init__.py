@@ -14,4 +14,4 @@
     You should have received a copy of the GNU General Public License
     along with PM4Py.  If not, see <https://www.gnu.org/licenses/>.
 '''
-from imtd.algo.discovery.inductive import algorithm, variants, util
+from imtd.algo.discovery.inductive import variants, util
