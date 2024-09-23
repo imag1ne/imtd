@@ -18,6 +18,7 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.10"
 pm4py = "=2.5.2"
+tqdm = "^4.66.5"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.2"
@@ -28,3 +29,4 @@ discover = "scripts.main:main"
 split_data = "scripts.split_data:main"
 calculate_distance = "scripts.calculate_distance:main"
 generate_event_log = "scripts.generate_event_log:main"
+experiment = "scripts.experiment:main"
