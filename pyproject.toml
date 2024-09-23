@@ -24,7 +24,7 @@ pytest = "^8.3.2"
 mypy = "^1.11.1"
 
 [tool.poetry.scripts]
-entrypoint = "scripts.main:main"
+discover = "scripts.main:main"
 split_data = "scripts.split_data:main"
 calculate_distance = "scripts.calculate_distance:main"
 generate_event_log = "scripts.generate_event_log:main"

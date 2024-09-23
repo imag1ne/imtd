@@ -1,7 +1,6 @@
 import pm4py
 from pm4py.algo.evaluation.replay_fitness import algorithm as replay_fitness
 from pm4py.algo.conformance.alignments.dfg import algorithm as dfg_alignment
-from pm4py.algo.evaluation.precision import algorithm as precision_evaluator
 
 
 def apply(LPlus, LMinus, dfg_net, sa, ea):
@@ -44,19 +43,16 @@ def apply_petri(LPlus, LMinus, net, i_m, i_f):
     measures = {}
 
     alp = pm4py.conformance_diagnostics_alignments(LPlus, net, i_m, i_f, multi_processing=True)
-    # alp = alignments.apply_log(LPlus, net, i_m, i_f)
     fp_inf = replay_fitness.evaluate(alp, variant=replay_fitness.Variants.ALIGNMENT_BASED)
     fp = fp_inf['averageFitness']
     fp_pef = fp_inf['percentage_of_fitting_traces'] / 100
     # roc_data = [('p', x['fitness']) for x in alp]
 
     ################################################################################
-    prec_Plus = precision_evaluator.apply(LPlus, net, i_m, i_f,
-                                          variant=precision_evaluator.Variants.ALIGN_ETCONFORMANCE)
+    prec_Plus = pm4py.precision_alignments(LPlus, net, i_m, i_f, multi_processing=True)
     ################################################################################
 
     alm = pm4py.conformance_diagnostics_alignments(LMinus, net, i_m, i_f, multi_processing=True)
-    # alm = alignments.apply_log(LMinus, net, i_m, i_f)
     fm_inf = replay_fitness.evaluate(alm, variant=replay_fitness.Variants.ALIGNMENT_BASED)
     fm = fm_inf['averageFitness']
     fm_pef = fm_inf['percentage_of_fitting_traces'] / 100

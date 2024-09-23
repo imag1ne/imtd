@@ -48,7 +48,7 @@ class Parameters(Enum):
     TAU_LOOP_KEY = "tau_loop"
 
 
-def apply(logp, logm, similarity_matrix, parameters=None, sup=None, ratio=None, size_par=None, parallel=True):
+def apply(logp, logm, similarity_matrix, parameters=None, sup=None, ratio=None, size_par=None):
     """
     Apply the IM algorithm to a log obtaining a Petri net along with an initial and final marking
 
