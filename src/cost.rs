@@ -457,7 +457,9 @@ fn deviating_edges_cost(
     for edge in edge_boundary_directed(graph, part_b, part_a) {
         let deviating_edge = (graph.graph[edge.source()], graph.graph[edge.target()]);
         // traces that contain the deviating edge in the original positive log
-        let traces_p_indices = original_edge_case_id_map[&deviating_edge]
+        let traces_p_indices = original_edge_case_id_map
+            .get(&deviating_edge)
+            .unwrap_or(&HashSet::new())
             .iter()
             .map(|case_id| case_id_trace_index_map[case_id])
             .collect::<HashSet<_>>();
