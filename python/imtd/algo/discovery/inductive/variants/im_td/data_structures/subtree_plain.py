@@ -59,8 +59,9 @@ class SubtreePlain:
     end_activities_minus: Mapping[str, int] = field(init=False)
 
     similarity_matrix: NDArray[numpy.float64]
-    case_id_trace_index_map: defaultdict[tuple[str, str], list[int]]
-    case_id_trace_index_map_minus: defaultdict[tuple[str, str], list[int]]
+    case_id_trace_index_map: Mapping[str, int]
+    case_id_trace_index_map_minus: Mapping[str, int]
+    original_edge_case_id_map: Mapping[tuple[str, str], Set[str]]
 
     counts: Counts
     recursion_depth: int
@@ -134,7 +135,11 @@ class SubtreePlain:
 
             cut += evaluate_cuts(possible_partitions, dfg_art, dfg_art_minus, nx_graph, nx_graph_minus,
                                  max_flow_graph, max_flow_graph_minus, activities_minus, log_variants,
-                                 len(self.log), len(self.log_minus), feat_scores, feat_scores_togg, sup, ratio,
+                                 len(self.log), len(self.log_minus), self.case_id_trace_index_map,
+                                 self.case_id_trace_index_map_minus, self.original_edge_case_id_map,
+                                 self.edge_case_id_map,
+                                 self.edge_case_id_map_minus, self.similarity_matrix, feat_scores, feat_scores_togg,
+                                 sup, ratio,
                                  size_par)
 
             sorted_cuts = sorted(cut, key=lambda x: (
@@ -196,6 +201,7 @@ class SubtreePlain:
                 SubtreePlain(new_log, new_log_minus, self.master_dfg, self.initial_dfg, self.initial_start_activities,
                              self.initial_end_activities, self.similarity_matrix, self.case_id_trace_index_map,
                              self.case_id_trace_index_map_minus,
+                             self.original_edge_case_id_map,
                              self.counts,
                              self.recursion_depth + 1,
                              self.noise_threshold, sup, ratio, size_par,
@@ -204,12 +210,12 @@ class SubtreePlain:
 
 def make_tree(log, log_minus, master_dfg, initial_dfg, initial_start_activities, initial_end_activities,
               similarity_matrix,
-              case_id_trace_index_map_plus, case_id_trace_index_map_minus,
+              case_id_trace_index_map_plus, case_id_trace_index_map_minus, original_edge_case_id_map,
               c, recursion_depth, noise_threshold, sup=None, ratio=None,
               size_par=None, parameters=None):
     tree = SubtreePlain(log, log_minus, master_dfg, initial_dfg, initial_start_activities,
                         initial_end_activities, similarity_matrix, case_id_trace_index_map_plus,
-                        case_id_trace_index_map_minus,
+                        case_id_trace_index_map_minus, original_edge_case_id_map,
                         c, recursion_depth, noise_threshold, sup, ratio, size_par,
                         parameters)
 

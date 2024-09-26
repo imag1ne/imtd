@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use petgraph::graph::EdgeReference;
 use petgraph::{visit::EdgeRef, Direction};
 use pyo3::pyfunction;
 use rayon::prelude::*;
@@ -28,6 +29,12 @@ pub fn evaluate_cuts<'a>(
     log_variants: HashMap<Vec<&str>, f64>,
     log_length: f64,
     log_minus_length: f64,
+    case_id_trace_index_map: HashMap<&str, usize>,
+    case_id_trace_index_map_m: HashMap<&str, usize>,
+    original_edge_case_id_map: HashMap<(&str, &str), HashSet<&str>>,
+    edge_case_id_map: HashMap<(&str, &str), HashSet<&str>>,
+    edge_case_id_map_m: HashMap<(&str, &str), HashSet<&str>>,
+    similarity_matrix: Vec<Vec<f64>>,
     feat_scores: HashMap<(&str, &str), f64>,
     feat_scores_toggle: HashMap<(&str, &str), f64>,
     sup: f64,
@@ -73,7 +80,7 @@ pub fn evaluate_cuts<'a>(
                         &max_flow_graph,
                         &feat_scores,
                     );
-                    let cost_seq_minus = cost_seq(
+                    let cost_seq_minus = cost_seq_minus(
                         &nx_graph_minus,
                         &activities_minus_in_part_a,
                         &activities_minus_in_part_b,
@@ -82,6 +89,12 @@ pub fn evaluate_cuts<'a>(
                         sup,
                         &max_flow_graph_minus,
                         &feat_scores_toggle,
+                        &case_id_trace_index_map,
+                        &case_id_trace_index_map_m,
+                        &original_edge_case_id_map,
+                        &edge_case_id_map,
+                        &edge_case_id_map_m,
+                        &similarity_matrix,
                     );
 
                     let seq_evaluation = (
@@ -101,10 +114,16 @@ pub fn evaluate_cuts<'a>(
 
                 if fit_exc > 0.0 {
                     let cost_exc_plus = cost_exc(&nx_graph, &part_a, &part_b);
-                    let cost_exc_minus = cost_exc(
+                    let cost_exc_minus = cost_exc_minus(
                         &nx_graph_minus,
                         &activities_minus_in_part_a,
                         &activities_minus_in_part_b,
+                        &case_id_trace_index_map,
+                        &case_id_trace_index_map_m,
+                        &original_edge_case_id_map,
+                        &edge_case_id_map,
+                        &edge_case_id_map_m,
+                        &similarity_matrix,
                     );
 
                     let exc_evaluation = (
@@ -177,7 +196,7 @@ pub fn evaluate_cuts<'a>(
                         &output_part_b,
                         sup,
                     ) {
-                        let cost_loop_minus = cost_loop(
+                        let cost_loop_minus = cost_loop_minus(
                             &nx_graph_minus,
                             &part_a,
                             &part_b,
@@ -186,6 +205,12 @@ pub fn evaluate_cuts<'a>(
                             &input_part_b_minus,
                             &output_part_b_minus,
                             sup,
+                            &case_id_trace_index_map,
+                            &case_id_trace_index_map_m,
+                            &original_edge_case_id_map,
+                            &edge_case_id_map,
+                            &edge_case_id_map_m,
+                            &similarity_matrix,
                         )
                         .unwrap_or(0.0);
 
@@ -356,21 +381,27 @@ fn fit_loop(
     fit
 }
 
+fn edge_boundary_directed<'a>(
+    graph: &'a PyGraph,
+    node_set_1: &'a HashSet<&'a str>,
+    node_set_2: &'a HashSet<&'a str>,
+) -> impl Iterator<Item = EdgeReference<'a, f64>> {
+    let di_graph = &graph.graph;
+
+    di_graph.edge_references().filter(|edge| {
+        let source = *di_graph.node_weight(edge.source()).unwrap();
+        let target = *di_graph.node_weight(edge.target()).unwrap();
+
+        node_set_1.contains(source) && node_set_2.contains(target)
+    })
+}
+
 fn edge_boundary_directed_num(
     graph: &PyGraph,
     node_set_1: &HashSet<&str>,
     node_set_2: &HashSet<&str>,
 ) -> f64 {
-    let di_graph = &graph.graph;
-
-    di_graph
-        .edge_references()
-        .filter(|edge| {
-            let source = *di_graph.node_weight(edge.source()).unwrap();
-            let target = *di_graph.node_weight(edge.target()).unwrap();
-
-            node_set_1.contains(source) && node_set_2.contains(target)
-        })
+    edge_boundary_directed(graph, node_set_1, node_set_2)
         .map(|edge| edge.weight())
         .sum()
 }
@@ -408,6 +439,47 @@ fn node_to_node_num(graph: &PyGraph, node_weight_1: &str, node_weight_2: &str) -
         .edges_connecting(graph[node_weight_1], graph[node_weight_2])
         .map(|edge| edge.weight())
         .sum()
+}
+
+fn deviating_edges_cost(
+    graph: &PyGraph,
+    part_a: &HashSet<&str>,
+    part_b: &HashSet<&str>,
+    case_id_trace_index_map: &HashMap<&str, usize>,
+    case_id_trace_index_map_m: &HashMap<&str, usize>,
+    original_edge_case_id_map: &HashMap<(&str, &str), HashSet<&str>>,
+    _edge_case_id_map: &HashMap<(&str, &str), HashSet<&str>>,
+    edge_case_id_map_m: &HashMap<(&str, &str), HashSet<&str>>,
+    similarity_matrix: &[Vec<f64>],
+) -> f64 {
+    let mut cost = 0.0;
+
+    for edge in edge_boundary_directed(graph, part_b, part_a) {
+        let deviating_edge = (graph.graph[edge.source()], graph.graph[edge.target()]);
+        // traces that contain the deviating edge in the original positive log
+        let traces_p_indices = original_edge_case_id_map[&deviating_edge]
+            .iter()
+            .map(|case_id| case_id_trace_index_map[case_id])
+            .collect::<HashSet<_>>();
+        // traces that contain the deviating edge in the negative log
+        let traces_m_indices = edge_case_id_map_m[&deviating_edge]
+            .iter()
+            .map(|case_id| case_id_trace_index_map_m[case_id]);
+        for trace_m_index in traces_m_indices {
+            let similarity = similarity_matrix
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| !traces_p_indices.contains(i))
+                .map(|(_, v)| v[trace_m_index])
+                .reduce(f64::max);
+
+            if let Some(similarity) = similarity {
+                cost += similarity;
+            }
+        }
+    }
+
+    cost
 }
 
 fn cost_seq(
@@ -468,9 +540,121 @@ fn cost_seq(
     cost_1 + cost_2 + cost_3
 }
 
+fn cost_seq_minus(
+    graph: &PyGraph,
+    part_a: &HashSet<&str>,
+    part_b: &HashSet<&str>,
+    start_set: &HashSet<&str>,
+    end_set: &HashSet<&str>,
+    sup: f64,
+    flow: &HashMap<(&str, &str), f64>,
+    scores: &HashMap<(&str, &str), f64>,
+    case_id_trace_index_map: &HashMap<&str, usize>,
+    case_id_trace_index_map_m: &HashMap<&str, usize>,
+    original_edge_case_id_map: &HashMap<(&str, &str), HashSet<&str>>,
+    edge_case_id_map: &HashMap<(&str, &str), HashSet<&str>>,
+    edge_case_id_map_m: &HashMap<(&str, &str), HashSet<&str>>,
+    similarity_matrix: &[Vec<f64>],
+) -> f64 {
+    // deviating edges
+    let cost_1 = deviating_edges_cost(
+        graph,
+        part_a,
+        part_b,
+        case_id_trace_index_map,
+        case_id_trace_index_map_m,
+        original_edge_case_id_map,
+        edge_case_id_map,
+        edge_case_id_map_m,
+        similarity_matrix,
+    );
+
+    let mut cost_2 = 0.0;
+    let part_a_out_degree = graph.nodes_out_degree(part_a);
+    let part_b_out_degree = graph.nodes_out_degree(part_b);
+    let part_a_and_part_b_out_degree = part_a_out_degree + part_b_out_degree;
+    for &node_a in part_a {
+        for &node_b in part_b {
+            let cost = f64::max(
+                0.0,
+                scores.get(&(node_a, node_b)).unwrap_or(&1.0)
+                    * graph.out_degree(node_a)
+                    * sup
+                    * (graph.out_degree(node_b) / part_a_and_part_b_out_degree)
+                    - flow[&(node_a, node_b)],
+            );
+            cost_2 += cost;
+        }
+    }
+
+    let mut cost_3 = 0.0;
+    let part_a_with_start = part_a | &HashSet::from(["start"]);
+    let part_b_with_end = part_b | &HashSet::from(["end"]);
+    let part_a_with_start_to_part_b_with_end_num =
+        edge_boundary_directed_num(graph, &part_a_with_start, &part_b_with_end);
+    for &end_node in end_set {
+        for &start_node in start_set {
+            let num_end_node_to_part_b_with_end =
+                node_to_nodes_num(graph, end_node, &part_b_with_end);
+            let num_part_a_with_start_to_start_node =
+                nodes_to_node_num(graph, &part_a_with_start, start_node);
+            let cost = f64::max(
+                0.0,
+                scores.get(&(end_node, start_node)).unwrap_or(&1.0)
+                    * num_end_node_to_part_b_with_end
+                    * sup
+                    * num_part_a_with_start_to_start_node
+                    / part_a_with_start_to_part_b_with_end_num
+                    - node_to_node_num(graph, end_node, start_node),
+            );
+            cost_3 += cost;
+        }
+    }
+
+    cost_1 + cost_2 + cost_3
+}
+
 fn cost_exc(graph: &PyGraph, part_a: &HashSet<&str>, part_b: &HashSet<&str>) -> f64 {
     let cost_1 = edge_boundary_directed_num(graph, part_a, part_b);
     let cost_2 = edge_boundary_directed_num(graph, part_b, part_a);
+    cost_1 + cost_2
+}
+
+fn cost_exc_minus(
+    graph: &PyGraph,
+    part_a: &HashSet<&str>,
+    part_b: &HashSet<&str>,
+    case_id_trace_index_map: &HashMap<&str, usize>,
+    case_id_trace_index_map_m: &HashMap<&str, usize>,
+    original_edge_case_id_map: &HashMap<(&str, &str), HashSet<&str>>,
+    edge_case_id_map: &HashMap<(&str, &str), HashSet<&str>>,
+    edge_case_id_map_m: &HashMap<(&str, &str), HashSet<&str>>,
+    similarity_matrix: &[Vec<f64>],
+) -> f64 {
+    let cost_1 = deviating_edges_cost(
+        graph,
+        part_a,
+        part_b,
+        case_id_trace_index_map,
+        case_id_trace_index_map_m,
+        original_edge_case_id_map,
+        edge_case_id_map,
+        edge_case_id_map_m,
+        similarity_matrix,
+    );
+
+    let cost_2 = deviating_edges_cost(
+        graph,
+        part_b,
+        part_a,
+        case_id_trace_index_map,
+        case_id_trace_index_map_m,
+        original_edge_case_id_map,
+        edge_case_id_map,
+        edge_case_id_map_m,
+        similarity_matrix,
+    );
+
     cost_1 + cost_2
 }
 
@@ -569,13 +753,128 @@ fn cost_loop(
     Some(cost_1 + cost_2 + cost_3 + cost_4 + cost_5)
 }
 
-// fn toggle<'a>(scores: &HashMap<(&'a str, &'a str), f64>) -> HashMap<(&'a str, &'a str), f64> {
-//     scores.iter().map(|(e, score)| {
-//         let s = 1.0 / *score;
-//         (e.clone(), s)
-//     }).collect()
-// }
+fn cost_loop_minus(
+    graph: &PyGraph,
+    part_a: &HashSet<&str>,
+    part_b: &HashSet<&str>,
+    start_part_a: &HashSet<&str>,
+    end_part_a: &HashSet<&str>,
+    input_part_b: &HashSet<&str>,
+    output_part_b: &HashSet<&str>,
+    sup: f64,
+    case_id_trace_index_map: &HashMap<&str, usize>,
+    case_id_trace_index_map_m: &HashMap<&str, usize>,
+    original_edge_case_id_map: &HashMap<(&str, &str), HashSet<&str>>,
+    edge_case_id_map: &HashMap<(&str, &str), HashSet<&str>>,
+    edge_case_id_map_m: &HashMap<(&str, &str), HashSet<&str>>,
+    similarity_matrix: &[Vec<f64>],
+) -> Option<f64> {
+    if edge_boundary_directed_num(graph, part_b, start_part_a) != 0.0 {
+        if edge_boundary_directed_num(graph, end_part_a, part_b) == 0.0 {
+            return None;
+        }
+    } else {
+        return None;
+    }
 
-fn calculate_cost(cost_plus: f64, cost_minus: f64, ratio: f64, size_par: f64) -> f64 {
-    cost_plus - ratio * size_par * cost_minus
+    let output_part_b_to_start_part_a_num =
+        edge_boundary_directed_num(graph, output_part_b, start_part_a);
+    let end_part_a_to_input_part_b_num =
+        edge_boundary_directed_num(graph, end_part_a, input_part_b);
+    let m_p = f64::max(
+        output_part_b_to_start_part_a_num,
+        end_part_a_to_input_part_b_num,
+    );
+
+    let cost_1 = deviating_edges_cost(
+        graph,
+        part_b,
+        &HashSet::from(["start"]),
+        case_id_trace_index_map,
+        case_id_trace_index_map_m,
+        original_edge_case_id_map,
+        edge_case_id_map,
+        edge_case_id_map_m,
+        similarity_matrix,
+    ) + deviating_edges_cost(
+        graph,
+        &HashSet::from(["end"]),
+        part_b,
+        case_id_trace_index_map,
+        case_id_trace_index_map_m,
+        original_edge_case_id_map,
+        edge_case_id_map,
+        edge_case_id_map_m,
+        similarity_matrix,
+    );
+    let cost_2 = deviating_edges_cost(
+        graph,
+        part_b,
+        &(part_a - end_part_a),
+        case_id_trace_index_map,
+        case_id_trace_index_map_m,
+        original_edge_case_id_map,
+        edge_case_id_map,
+        edge_case_id_map_m,
+        similarity_matrix,
+    );
+    let cost_3 = deviating_edges_cost(
+        graph,
+        &(part_a - start_part_a),
+        part_b,
+        case_id_trace_index_map,
+        case_id_trace_index_map_m,
+        original_edge_case_id_map,
+        edge_case_id_map,
+        edge_case_id_map_m,
+        similarity_matrix,
+    );
+
+    let mut cost_4 = 0.0;
+    let start_to_start_part_a_num = node_to_nodes_num(graph, "start", start_part_a);
+    let output_part_b_to_start_part_a_num =
+        edge_boundary_directed_num(graph, output_part_b, start_part_a);
+    if !output_part_b.is_empty() {
+        for &node_a in start_part_a {
+            for &node_b in output_part_b {
+                let c = m_p
+                    * sup
+                    * (node_to_node_num(graph, "start", node_a) / start_to_start_part_a_num)
+                    * (node_to_nodes_num(graph, node_b, start_part_a)
+                        / output_part_b_to_start_part_a_num);
+                cost_4 += f64::max(0.0, c - node_to_node_num(graph, node_b, node_a));
+            }
+        }
+    }
+
+    let mut cost_5 = 0.0;
+    let end_part_a_to_end_num = nodes_to_node_num(graph, end_part_a, "end");
+    let end_part_a_to_input_part_b_num =
+        edge_boundary_directed_num(graph, end_part_a, input_part_b);
+    if !input_part_b.is_empty() {
+        for &node_a in end_part_a {
+            for &node_b in input_part_b {
+                let c = m_p
+                    * sup
+                    * (node_to_node_num(graph, node_a, "end") / end_part_a_to_end_num)
+                    * (nodes_to_node_num(graph, end_part_a, node_b)
+                        / end_part_a_to_input_part_b_num);
+                cost_5 += f64::max(0.0, c - node_to_node_num(graph, node_a, node_b));
+            }
+        }
+    }
+
+    if sup * m_p == 0.0 {
+        return None;
+    }
+
+    if (cost_4 + cost_5) / (2.0 * sup * m_p) > 0.3 {
+        return None;
+    }
+
+    Some(cost_1 + cost_2 + cost_3 + cost_4 + cost_5)
+}
+
+fn calculate_cost(cost_plus: f64, cost_minus: f64, _ratio: f64, size_par: f64) -> f64 {
+    cost_plus - size_par * cost_minus
 }

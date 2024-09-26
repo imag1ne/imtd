@@ -27,6 +27,7 @@ from pm4py.statistics.end_activities.log import get as end_activities_get
 from pm4py.statistics.start_activities.log import get as start_activities_get
 from pm4py.objects.conversion.process_tree import converter as tree_to_petri
 
+from imtd.algo.analysis.dfg_functions import edge_case_id_mapping
 from imtd.algo.discovery.inductive.util import tree_consistency
 from imtd.algo.discovery.inductive.util.petri_el_count import Counts
 from imtd.algo.discovery.inductive.variants.im_td.data_structures import subtree_plain as subtree
@@ -143,9 +144,10 @@ def apply_tree(logp, logm, similarity_matrix, parameters=None, sup=None, ratio=N
     log_m_art = artificial_start_end(copy.deepcopy(logm))
     case_id_trace_index_map_plus = case_id_trace_index_mapping(log_art)
     case_id_trace_index_map_minus = case_id_trace_index_mapping(log_m_art)
+    edge_case_id_map = edge_case_id_mapping(log_art)
     sub = subtree.make_tree(logp, logm, dfgp, dfgp, start_activitiesp,
                             end_activitiesp, similarity_matrix, case_id_trace_index_map_plus,
-                            case_id_trace_index_map_minus,
+                            case_id_trace_index_map_minus, edge_case_id_map,
                             c, recursion_depth, 0.0, sup, ratio, size_par, parameters)
 
     process_tree = get_tree_repr_implain.get_repr(sub, 0, contains_empty_traces=contains_empty_traces)

@@ -3,6 +3,7 @@ mod cost;
 mod distance;
 mod graph;
 mod mapping;
+mod pm4py;
 
 use pyo3::prelude::*;
 
