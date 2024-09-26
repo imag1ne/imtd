@@ -1,10 +1,11 @@
-import time
+import argparse
 import csv
+from pathlib import Path
 
 import pm4py
 import numpy as np
 
-from imtd import distance_matrix as distance_matrix_par
+from imtd import distance_matrix
 
 WORKING_DIR = '../Dataset/Example Event Log/'
 DESIRABLE_EVENT_LOG = 'event_log_example_2.xes'
@@ -14,33 +15,45 @@ UNDESIRABLE_EVENT_LOG = 'event_log_example_2_un.xes'
 OUTPUT_DISTANCE_FILENAME = 'example_2_distance_matrix'
 OUTPUT_SIMILARITY_FILENAME = 'example_2_similarity_matrix'
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(prog='Distance matrix', description='Distance matrix')
+
+    parser.add_argument('-p', '--desirable-log', type=Path, required=True)
+    parser.add_argument('-m', '--undesirable-log', type=Path, required=True)
+    parser.add_argument('-o', '--output', type=Path, default='output')
+
+    return parser.parse_args()
+
+
 def main():
-    event_log_plus = pm4py.read_xes(WORKING_DIR + DESIRABLE_EVENT_LOG, return_legacy_log_object=True)
-    event_log_minus = pm4py.read_xes(WORKING_DIR + UNDESIRABLE_EVENT_LOG, return_legacy_log_object=True)
+    args = parse_args()
+    desirable_log_path = args.desirable_log
+    undesirable_log_path = args.undesirable_log
 
-    start = time.time()
-    dm = np.array(distance_matrix_par(event_log_plus, event_log_minus))
-    end = time.time()
-    print("Rust implementation elapsed time: ", end - start)
+    Path(args.output).mkdir(parents=True, exist_ok=True)
 
-    dm_filename = OUTPUT_DISTANCE_FILENAME + '_100' + '.csv'
+    event_log_plus = pm4py.read_xes(str(desirable_log_path), return_legacy_log_object=True)
+    event_log_minus = pm4py.read_xes(str(undesirable_log_path), return_legacy_log_object=True)
+
+    print("Calculating distance matrix...")
+    dm = np.array(distance_matrix(event_log_plus, event_log_minus))
+
+    dm_filename = args.output.joinpath('distance_matrix.csv')
     print("Saving distance matrix to file {}...".format(dm_filename))
-    with open(WORKING_DIR + dm_filename, mode='w', newline='') as file:
+    with open(dm_filename, mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerows(dm)
 
+    print("Calculating similarity matrix...")
     max_distance = np.max(dm)
     sm = 1 - dm / max_distance
-    sm_filename = OUTPUT_SIMILARITY_FILENAME + '_100' + '.csv'
+    sm_filename = args.output.joinpath('similarity_matrix.csv')
     print("Saving similarity matrix to file {}...".format(sm_filename))
-    with open(WORKING_DIR + sm_filename, mode='w', newline='') as file:
+    with open(sm_filename, mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerows(sm)
 
-def check_matrices(m1, m2):
-    for i in range(len(m1)):
-        for j in range(len(m1[i])):
-            assert m1[i][j] == m2[i][j]
 
 if __name__ == '__main__':
     main()
