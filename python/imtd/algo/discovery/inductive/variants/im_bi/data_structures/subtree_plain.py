@@ -20,7 +20,7 @@ from pm4py.algo.discovery.dfg.utils.dfg_utils import get_activities_from_dfg
 from pm4py.objects.log.obj import EventLog, Event
 from imtd.algo.analysis import dfg_functions
 from imtd.algo.discovery.dfg import algorithm as dfg_discovery
-from imtd import evaluate_cuts, find_possible_partitions
+from imtd import evaluate_cuts_for_imbi as evaluate_cuts, find_possible_partitions
 
 
 def artificial_start_end(event_log: EventLog) -> EventLog:

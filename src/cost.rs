@@ -880,3 +880,195 @@ fn cost_loop_minus(
 fn calculate_cost(cost_plus: f64, cost_minus: f64, _ratio: f64, size_par: f64) -> f64 {
     cost_plus - size_par * cost_minus
 }
+
+#[pyfunction]
+pub fn evaluate_cuts_for_imbi<'a>(
+    cuts: Vec<(HashSet<&'a str>, HashSet<&'a str>, HashSet<&str>)>,
+    dfg: HashMap<(&str, &str), f64>,
+    dfg_minus: HashMap<(&str, &str), f64>,
+    nx_graph: PyGraph,
+    nx_graph_minus: PyGraph,
+    max_flow_graph: HashMap<(&str, &str), f64>,
+    max_flow_graph_minus: HashMap<(&str, &str), f64>,
+    activities_minus: HashSet<&str>,
+    log_variants: HashMap<Vec<&str>, f64>,
+    log_length: f64,
+    log_minus_length: f64,
+    feat_scores: HashMap<(&str, &str), f64>,
+    feat_scores_toggle: HashMap<(&str, &str), f64>,
+    sup: f64,
+    ratio: f64,
+    size_par: f64,
+) -> CutEvaluations<'a> {
+    cuts.par_iter()
+        .flat_map(|(part_a, part_b, cut_types)| {
+            let start_and_end_set = HashSet::from(["start", "end"]);
+            let part_a = part_a - &start_and_end_set;
+            let part_b = part_b - &start_and_end_set;
+            let mut evaluations = vec![];
+
+            let (start_part_a, end_part_a, start_part_b, input_part_b, output_part_b) =
+                get_activity_sets(&dfg, &part_a, &part_b);
+            let (
+                start_part_a_minus,
+                end_part_a_minus,
+                start_part_b_minus,
+                input_part_b_minus,
+                output_part_b_minus,
+            ) = get_activity_sets(&dfg_minus, &part_a, &part_b);
+            let activities_minus_in_part_a = &part_a & &activities_minus;
+            let activities_minus_in_part_b = &part_b & &activities_minus;
+            let activities_minus_in_start_part_b_minus = &start_part_b_minus & &activities_minus;
+            let activities_minus_in_end_part_a_minus = &end_part_a_minus & &activities_minus;
+
+            let mut ratio = ratio;
+            if activities_minus_in_part_a.is_empty() || activities_minus_in_part_b.is_empty() {
+                ratio = 0.0;
+            }
+
+            if cut_types.contains("seq") {
+                let fit_seq = fit_seq(&log_variants, &part_a, &part_b);
+                if fit_seq > 0.0 {
+                    let cost_seq_plus = cost_seq(
+                        &nx_graph,
+                        &part_a,
+                        &part_b,
+                        &start_part_b,
+                        &end_part_a,
+                        sup,
+                        &max_flow_graph,
+                        &feat_scores,
+                    );
+                    let cost_seq_minus = cost_seq(
+                        &nx_graph_minus,
+                        &activities_minus_in_part_a,
+                        &activities_minus_in_part_b,
+                        &activities_minus_in_start_part_b_minus,
+                        &activities_minus_in_end_part_a_minus,
+                        sup,
+                        &max_flow_graph_minus,
+                        &feat_scores_toggle,
+                    );
+
+                    let seq_evaluation = (
+                        (part_a.clone(), part_b.clone()),
+                        "seq".to_string(),
+                        cost_seq_plus,
+                        cost_seq_minus,
+                        calculate_cost(cost_seq_plus, cost_seq_minus, ratio, size_par),
+                        fit_seq,
+                    );
+                    evaluations.push(seq_evaluation);
+                }
+            }
+
+            if cut_types.contains("exc") {
+                let fit_exc = fit_exc(&log_variants, &part_a, &part_b);
+
+                if fit_exc > 0.0 {
+                    let cost_exc_plus = cost_exc(&nx_graph, &part_a, &part_b);
+                    let cost_exc_minus = cost_exc(
+                        &nx_graph_minus,
+                        &activities_minus_in_part_a,
+                        &activities_minus_in_part_b,
+                    );
+
+                    let exc_evaluation = (
+                        (part_a.clone(), part_b.clone()),
+                        "exc".to_string(),
+                        cost_exc_plus,
+                        cost_exc_minus,
+                        calculate_cost(cost_exc_plus, cost_exc_minus, ratio, size_par),
+                        fit_exc,
+                    );
+                    evaluations.push(exc_evaluation);
+                }
+            }
+
+            let start_to_end_num = node_to_node_num(&nx_graph, "start", "end");
+            if start_to_end_num > 0.0 {
+                let missing_exc_tau_plus = f64::max(0.0, sup * log_length - start_to_end_num);
+                let missing_exc_tau_minus = f64::max(
+                    0.0,
+                    sup * log_minus_length - node_to_node_num(&nx_graph_minus, "start", "end"),
+                );
+                let part_a_union_part_b = &part_a | &part_b;
+                let xor_tau_evaluation = (
+                    (part_a_union_part_b, HashSet::new()),
+                    "exc2".to_string(),
+                    missing_exc_tau_plus,
+                    missing_exc_tau_minus,
+                    calculate_cost(missing_exc_tau_plus, missing_exc_tau_minus, ratio, size_par),
+                    1.0,
+                );
+                evaluations.push(xor_tau_evaluation);
+            }
+
+            if cut_types.contains("par") {
+                let cost_par_plus = cost_par(
+                    &nx_graph,
+                    &activities_minus_in_part_a,
+                    &activities_minus_in_part_b,
+                    sup,
+                );
+                let cost_par_minus = cost_par(
+                    &nx_graph_minus,
+                    &activities_minus_in_part_a,
+                    &activities_minus_in_part_b,
+                    sup,
+                );
+
+                let par_evaluation = (
+                    (part_a.clone(), part_b.clone()),
+                    "par".to_string(),
+                    cost_par_plus,
+                    cost_par_minus,
+                    calculate_cost(cost_par_plus, cost_par_minus, ratio, size_par),
+                    1.0,
+                );
+                evaluations.push(par_evaluation);
+            }
+
+            if cut_types.contains("loop") {
+                let fit_loop =
+                    fit_loop(&log_variants, &part_a, &part_b, &end_part_a, &start_part_a);
+                if fit_loop > 0.0 {
+                    if let Some(cost_loop_plus) = cost_loop(
+                        &nx_graph,
+                        &part_a,
+                        &part_b,
+                        &start_part_a,
+                        &end_part_a,
+                        &input_part_b,
+                        &output_part_b,
+                        sup,
+                    ) {
+                        let cost_loop_minus = cost_loop(
+                            &nx_graph_minus,
+                            &part_a,
+                            &part_b,
+                            &start_part_a_minus,
+                            &end_part_a_minus,
+                            &input_part_b_minus,
+                            &output_part_b_minus,
+                            sup,
+                        )
+                        .unwrap_or(0.0);
+
+                        let loop_evaluation = (
+                            (part_a.clone(), part_b.clone()),
+                            "loop".to_string(),
+                            cost_loop_plus,
+                            cost_loop_minus,
+                            calculate_cost(cost_loop_plus, cost_loop_minus, ratio, size_par),
+                            fit_loop,
+                        );
+                        evaluations.push(loop_evaluation);
+                    }
+                }
+            }
+
+            evaluations
+        })
+        .collect::<Vec<_>>()
+}
