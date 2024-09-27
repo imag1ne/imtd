@@ -877,8 +877,8 @@ fn cost_loop_minus(
     Some(cost_1 + cost_2 + cost_3 + cost_4 + cost_5)
 }
 
-fn calculate_cost(cost_plus: f64, cost_minus: f64, _ratio: f64, size_par: f64) -> f64 {
-    cost_plus - size_par * cost_minus
+fn calculate_cost(cost_plus: f64, cost_minus: f64, ratio: f64, size_par: f64) -> f64 {
+    cost_plus - ratio * size_par * cost_minus
 }
 
 #[pyfunction]

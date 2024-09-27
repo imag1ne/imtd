@@ -56,7 +56,7 @@ def main():
 
     print("Calculating similarity matrix...")
     max_distance = np.max(dm)
-    sm = 1 - dm / max_distance
+    sm = (1 - dm / max_distance) * 2
     sm_filename = args.output.joinpath('similarity_matrix.csv')
     print("Saving similarity matrix to file {}...".format(sm_filename))
     with open(sm_filename, mode='w', newline='') as file:
