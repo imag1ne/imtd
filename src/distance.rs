@@ -3,20 +3,121 @@ use std::hash::Hash;
 
 use crate::pm4py::obj::Event;
 use counter::Counter;
-use pyo3::{pyfunction, PyResult};
+use pyo3::types::PyAnyMethods;
+use pyo3::{pyfunction, Bound, FromPyObject, PyAny, PyResult};
 use rayon::prelude::*;
 
 const DEFAULT_NAME_KEY: &str = "concept:name";
 const DEFAULT_RESOURCE_KEY: &str = "org:resource";
 
+#[derive(Default)]
+pub struct Perspectives(Vec<Perspective>);
+
+impl FromPyObject<'_> for Perspectives {
+    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let perspectives = ob.extract::<Vec<(&str, f64)>>()?;
+        let perspectives_length = perspectives.len() as f64;
+        let weight_sum = perspectives.iter().map(|(_, w)| w).sum::<f64>();
+        let perspectives = perspectives
+            .into_iter()
+            .map(|(p, w)| {
+                let weight = if weight_sum == 0.0 {
+                    1.0 / perspectives_length
+                } else {
+                    w / weight_sum
+                };
+                let perspective = match p {
+                    "activity" => Perspective::Activity { weight },
+                    "transition" => Perspective::Transition { weight },
+                    "resource" => Perspective::Resource { weight },
+                    _ => {
+                        return Err(pyo3::exceptions::PyValueError::new_err(
+                            "Invalid perspective",
+                        ))
+                    }
+                };
+                Ok(perspective)
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+
+        Ok(Perspectives(perspectives))
+    }
+}
+
+impl Perspectives {
+    fn distance(&self, trace1: &[ExtractedEvent], trace2: &[ExtractedEvent]) -> f64 {
+        self.0
+            .iter()
+            .map(|perspective| perspective.distance(trace1, trace2))
+            .sum()
+    }
+}
+
+enum Perspective {
+    Activity { weight: f64 },
+    Transition { weight: f64 },
+    Resource { weight: f64 },
+}
+
+impl Perspective {
+    fn distance(&self, trace1: &[ExtractedEvent], trace2: &[ExtractedEvent]) -> f64 {
+        match self {
+            Perspective::Activity { weight } => {
+                if *weight == 0.0 {
+                    return 0.0;
+                }
+
+                let activity_distance = activity_distance(trace1, trace2);
+                activity_distance * weight
+            }
+            Perspective::Transition { weight } => {
+                if *weight == 0.0 {
+                    return 0.0;
+                }
+
+                let transition_distance = transition_distance(trace1, trace2);
+                transition_distance * weight
+            }
+            Perspective::Resource { weight } => {
+                if *weight == 0.0 {
+                    return 0.0;
+                }
+
+                let resource_distance = resource_distance(trace1, trace2);
+                resource_distance * weight
+            }
+        }
+    }
+}
+
+impl FromPyObject<'_> for Perspective {
+    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let (p, w) = ob.extract::<(&str, f64)>()?;
+        let perspective = match p {
+            "activity" => Perspective::Activity { weight: w },
+            "transition" => Perspective::Transition { weight: w },
+            "resource" => Perspective::Resource { weight: w },
+            _ => {
+                return Err(pyo3::exceptions::PyValueError::new_err(
+                    "Invalid perspective",
+                ))
+            }
+        };
+
+        Ok(perspective)
+    }
+}
+
 #[pyfunction]
-#[pyo3(signature = (desirable_log, undesirable_log, activity_key=None, resource_key=None))]
+#[pyo3(signature = (desirable_log, undesirable_log, weights=None, activity_key=None, resource_key=None))]
 pub fn distance_matrix<'py>(
     desirable_log: Vec<Vec<Event<'py>>>,
     undesirable_log: Vec<Vec<Event<'py>>>,
+    weights: Option<Perspectives>,
     activity_key: Option<&str>,
     resource_key: Option<&str>,
 ) -> PyResult<Vec<Vec<f64>>> {
+    let weights = weights.unwrap_or_default();
     let activity_key = activity_key.unwrap_or(DEFAULT_NAME_KEY);
     let resource_key = resource_key.unwrap_or(DEFAULT_RESOURCE_KEY);
 
@@ -34,20 +135,11 @@ pub fn distance_matrix<'py>(
                     if trace_p_len > trace_m_len {
                         trace_p
                             .windows(trace_m_len)
-                            .map(|trace_p_slice| {
-                                let activity_distance = activity_distance(trace_p_slice, trace_m);
-                                let transition_distance =
-                                    transition_distance(trace_p_slice, trace_m);
-                                let resource_distance = resource_distance(trace_p_slice, trace_m);
-                                activity_distance + transition_distance + resource_distance
-                            })
+                            .map(|trace_p_slice| weights.distance(trace_p_slice, trace_m))
                             .reduce(f64::min)
                             .unwrap()
                     } else {
-                        let activity_distance = activity_distance(trace_p, trace_m);
-                        let transition_distance = transition_distance(trace_p, trace_m);
-                        let resource_distance = resource_distance(trace_p, trace_m);
-                        activity_distance + transition_distance + resource_distance
+                        weights.distance(trace_p, trace_m)
                     }
                 })
                 .collect()

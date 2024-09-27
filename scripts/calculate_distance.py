@@ -21,6 +21,9 @@ def parse_args():
 
     parser.add_argument('-p', '--desirable-log', type=Path, required=True)
     parser.add_argument('-m', '--undesirable-log', type=Path, required=True)
+    parser.add_argument('-a', '--activity', type=float, required=False, default=0)
+    parser.add_argument('-t', '--transition', type=float, required=False, default=0)
+    parser.add_argument('-r', '--resource', type=float, required=False, default=0)
     parser.add_argument('-o', '--output', type=Path, default='output')
 
     return parser.parse_args()
@@ -30,6 +33,9 @@ def main():
     args = parse_args()
     desirable_log_path = args.desirable_log
     undesirable_log_path = args.undesirable_log
+    activity_weight = args.activity
+    transition_weight = args.transition
+    resource_weight = args.resource
 
     Path(args.output).mkdir(parents=True, exist_ok=True)
 
@@ -37,7 +43,10 @@ def main():
     event_log_minus = pm4py.read_xes(str(undesirable_log_path), return_legacy_log_object=True)
 
     print("Calculating distance matrix...")
-    dm = np.array(distance_matrix(event_log_plus, event_log_minus))
+    dm = np.array(
+        distance_matrix(event_log_plus, event_log_minus,
+                        [('activity', activity_weight), ('transition', transition_weight),
+                         ('resource', resource_weight)]))
 
     dm_filename = args.output.joinpath('distance_matrix.csv')
     print("Saving distance matrix to file {}...".format(dm_filename))
