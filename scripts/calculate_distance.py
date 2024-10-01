@@ -46,7 +46,7 @@ def main():
     dm = np.array(
         distance_matrix(event_log_plus, event_log_minus,
                         [('activity', activity_weight), ('transition', transition_weight),
-                         ('resource', resource_weight)]))
+                         ('resource', resource_weight)], resource_key='org:group'))
 
     dm_filename = args.output.joinpath('distance_matrix.csv')
     print("Saving distance matrix to file {}...".format(dm_filename))
