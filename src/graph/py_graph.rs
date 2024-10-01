@@ -42,6 +42,10 @@ impl<'py> FromPyObject<'py> for PyGraph<'py> {
 }
 
 impl PyGraph<'_> {
+    pub fn contains_node_weight(&self, node_weight: &str) -> bool {
+        self.node_weight_index_map.contains_key(node_weight)
+    }
+
     pub fn out_degree(&self, node_weight: &str) -> f64 {
         let node_idx = self[node_weight];
         self.graph.edges(node_idx).map(|edge| edge.weight()).sum()

@@ -409,6 +409,10 @@ fn edge_boundary_directed_num(
 fn node_to_nodes_num(graph: &PyGraph, node_weight: &str, node_set: &HashSet<&str>) -> f64 {
     let di_graph = &graph.graph;
 
+    if !graph.contains_node_weight(node_weight) {
+        return 0.0;
+    }
+
     di_graph
         .edges(graph[node_weight])
         .filter(|edge| {
@@ -422,6 +426,10 @@ fn node_to_nodes_num(graph: &PyGraph, node_weight: &str, node_set: &HashSet<&str
 fn nodes_to_node_num(graph: &PyGraph, node_set: &HashSet<&str>, node_weight: &str) -> f64 {
     let di_graph = &graph.graph;
 
+    if !graph.contains_node_weight(node_weight) {
+        return 0.0;
+    }
+
     di_graph
         .edges_directed(graph[node_weight], Direction::Incoming)
         .filter(|edge| {
@@ -434,6 +442,10 @@ fn nodes_to_node_num(graph: &PyGraph, node_set: &HashSet<&str>, node_weight: &st
 
 fn node_to_node_num(graph: &PyGraph, node_weight_1: &str, node_weight_2: &str) -> f64 {
     let di_graph = &graph.graph;
+
+    if !graph.contains_node_weight(node_weight_1) || !graph.contains_node_weight(node_weight_2) {
+        return 0.0;
+    }
 
     di_graph
         .edges_connecting(graph[node_weight_1], graph[node_weight_2])
