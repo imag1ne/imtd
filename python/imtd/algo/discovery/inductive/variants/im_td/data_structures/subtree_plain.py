@@ -22,7 +22,7 @@ from imtd.algo.discovery.dfg import algorithm as dfg_discovery
 from imtd.algo.discovery.inductive.util.petri_el_count import Counts
 from imtd.algo.discovery.inductive.variants.im_bi.util import splitting as split
 from imtd.algo.discovery.inductive.variants.im_td.util import log_utils
-from imtd import evaluate_cuts, find_possible_partitions
+from imtd import evaluate_cuts_for_imbi, find_possible_partitions
 
 
 def generate_nx_graph_from_dfg(dfg: dict[tuple[str, str], float]) -> DiGraph:
