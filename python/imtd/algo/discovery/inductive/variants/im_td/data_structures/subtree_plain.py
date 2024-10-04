@@ -275,6 +275,9 @@ def get_end_activities_from_dfg_with_artificial_end(dfg, activities):
 
 
 def filter_dfg(dfg, dfg_minus, weight):
+    if len(dfg_minus) == 0:
+        return dfg
+    
     dfg_max_weight = max(dfg.values())
     dfg_minus_max_weight = max(dfg_minus.values())
     factor = dfg_max_weight / dfg_minus_max_weight
