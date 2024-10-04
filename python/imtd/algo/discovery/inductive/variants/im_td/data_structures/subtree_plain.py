@@ -280,5 +280,5 @@ def filter_dfg(dfg, dfg_minus, weight):
     factor = dfg_max_weight / dfg_minus_max_weight
     scaled_dfg_minus = defaultdict(float, ((k, v * factor * weight) for k, v in dfg_minus.items()))
 
-    filtered_dfg = {k: v for k, v in dfg.items() if v >= scaled_dfg_minus[k]}
+    filtered_dfg = defaultdict(float, ((k, v) for k, v in dfg.items() if v >= scaled_dfg_minus[k]))
     return filtered_dfg
