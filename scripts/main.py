@@ -30,6 +30,7 @@ def parse_args():
     imtd_parser = subparsers.add_parser('imtd', help='Inductive Miner td')
     imtd_parser.add_argument('-s', '--support', type=float, required=True)
     imtd_parser.add_argument('-r', '--ratio', type=float, required=True)
+    imtd_parser.add_argument('-w', '--weight', type=float, required=True)
     imtd_parser.add_argument('-p', '--desirable-log', type=str, required=True)
     imtd_parser.add_argument('-m', '--undesirable-log', type=str, required=True)
     imtd_parser.add_argument('-d', '--similarity-matrix', type=str, required=True)
@@ -65,7 +66,9 @@ def main():
     match args.subcommand:
         case 'im':
             noise_threshold = args.noise_threshold or 0.0
-            net, initial_marking, final_marking = pm4py.discover_petri_net_inductive(log_p, noise_threshold=noise_threshold, multi_processing=True)
+            net, initial_marking, final_marking = pm4py.discover_petri_net_inductive(log_p,
+                                                                                     noise_threshold=noise_threshold,
+                                                                                     multi_processing=True)
         case 'imbi':
             net, initial_marking, final_marking = discover_petri_net_inductive_bi(
                 log_p,
@@ -82,7 +85,8 @@ def main():
                 similarity_matrix,
                 sup=args.support,
                 ratio=args.ratio,
-                size_par=len(log_p) / len(log_m))
+                size_par=len(log_p) / len(log_m),
+                weight=args.weight)
 
     end = time.time()
     elapsed_time = end - start
@@ -105,9 +109,10 @@ def main():
             pnsvg_file_name = "/petri_imbi_r" + str(args.ratio) + "_s" + str(args.support) + ".svg"
             mes_filename = "/mes_imbi_r" + str(args.ratio) + "_s" + str(args.support) + ".csv"
         case 'imtd':
-            pnml_file_name = "/petri_imtd_r" + str(args.ratio) + "_s" + str(args.support)
-            pnsvg_file_name = "/petri_imtd_r" + str(args.ratio) + "_s" + str(args.support) + ".svg"
-            mes_filename = "/mes_imtd_r" + str(args.ratio) + "_s" + str(args.support) + ".csv"
+            pnml_file_name = "/petri_imtd_r" + str(args.ratio) + "_s" + str(args.support) + "_w" + str(args.weight)
+            pnsvg_file_name = "/petri_imtd_r" + str(args.ratio) + "_s" + str(args.support) + "_w" + str(
+                args.weight) + ".svg"
+            mes_filename = "/mes_imtd_r" + str(args.ratio) + "_s" + str(args.support) + "_w" + str(args.weight) + ".csv"
 
     # save the petri net
     print("Saving the petri net...")

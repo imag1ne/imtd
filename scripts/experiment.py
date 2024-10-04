@@ -14,6 +14,7 @@ def parse_args():
     parser.add_argument('-t', '--noise-threshold', type=str, required=False, default=None)
     parser.add_argument('-s', '--support', type=str, required=False)
     parser.add_argument('-r', '--ratio', type=str, required=False)
+    parser.add_argument('-w', '--weight', type=str, required=False)
     parser.add_argument('-p', '--desirable-log', type=Path, required=True)
     parser.add_argument('-m', '--undesirable-log', type=Path, required=False)
     parser.add_argument('-d', '--similarity-matrix', type=Path, required=False)
@@ -81,22 +82,26 @@ def main():
             similarity_matrix = np.genfromtxt(similarity_matrix, delimiter=',')
             support_process = tqdm(parse_to_float_list(args.support), desc='Inductive Miner td')
             ratio_process = tqdm(parse_to_float_list(args.ratio))
+            weight_process = tqdm(parse_to_float_list(args.weight))
             for support in support_process:
                 for ratio in ratio_process:
-                    support_process.set_description("Inductive Miner td (support={}, ratio={})".format(support, ratio))
-                    petri_net, initial_marking, final_marking = discover_petri_net_inductive_td(
-                        log_p,
-                        log_m,
-                        similarity_matrix,
-                        sup=support,
-                        ratio=ratio,
-                        size_par=len(log_p) / len(log_m))
-                    suffix = 's{}_r{}'.format(support, ratio)
-                    # save the petri net
-                    model_filename = 'imtd_petri_{}'.format(suffix)
-                    save_petri_net(petri_net, initial_marking, final_marking, output, model_filename)
-                    mes = Optimzation_Goals.apply_petri(log_p, log_m, petri_net, initial_marking, final_marking)
-                    save_measurements(mes, output, model_filename)
+                    for weight in weight_process:
+                        support_process.set_description(
+                            "Inductive Miner td (support={}, ratio={}, weight={})".format(support, ratio, weight))
+                        petri_net, initial_marking, final_marking = discover_petri_net_inductive_td(
+                            log_p,
+                            log_m,
+                            similarity_matrix,
+                            sup=support,
+                            ratio=ratio,
+                            size_par=len(log_p) / len(log_m),
+                            weight=weight)
+                        suffix = 's{}_r{}_w{}'.format(support, ratio, weight)
+                        # save the petri net
+                        model_filename = 'imtd_petri_{}'.format(suffix)
+                        save_petri_net(petri_net, initial_marking, final_marking, output, model_filename)
+                        mes = Optimzation_Goals.apply_petri(log_p, log_m, petri_net, initial_marking, final_marking)
+                        save_measurements(mes, output, model_filename)
 
     print("Completed discovering petri nets and evaluating the models.")
 

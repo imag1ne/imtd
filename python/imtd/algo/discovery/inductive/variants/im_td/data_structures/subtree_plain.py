@@ -70,6 +70,7 @@ class SubtreePlain:
     sup: float = 0.0
     ratio: float = 0.0
     size_par: float = 1.0
+    weight: float = 0.0
 
     parameters: Optional[Mapping[Any, Any]] = None
 
@@ -117,7 +118,7 @@ class SubtreePlain:
 
             dfg_art = dfg_discovery.apply(self.log_art, variant=dfg_discovery.Variants.FREQUENCY)
             dfg_art_minus = dfg_discovery.apply(self.log_minus_art, variant=dfg_discovery.Variants.FREQUENCY)
-            dfg_art = filter_dfg(dfg_art, dfg_art_minus, ratio)
+            dfg_art = filter_dfg(dfg_art, dfg_art_minus, self.weight)
 
             nx_graph = generate_nx_graph_from_dfg(dfg_art)
             nx_graph_minus = generate_nx_graph_from_dfg(dfg_art_minus)
@@ -209,7 +210,7 @@ class SubtreePlain:
                              self.original_edge_case_id_map,
                              self.counts,
                              self.recursion_depth + 1,
-                             self.noise_threshold, sup, ratio, size_par,
+                             self.noise_threshold, sup, ratio, size_par, self.weight,
                              parameters))
 
 
@@ -217,11 +218,11 @@ def make_tree(log, log_minus, master_dfg, initial_dfg, initial_start_activities,
               similarity_matrix,
               case_id_trace_index_map_plus, case_id_trace_index_map_minus, original_edge_case_id_map,
               c, recursion_depth, noise_threshold, sup=None, ratio=None,
-              size_par=None, parameters=None):
+              size_par=None, weight=None, parameters=None):
     tree = SubtreePlain(log, log_minus, master_dfg, initial_dfg, initial_start_activities,
                         initial_end_activities, similarity_matrix, case_id_trace_index_map_plus,
                         case_id_trace_index_map_minus, original_edge_case_id_map,
-                        c, recursion_depth, noise_threshold, sup, ratio, size_par,
+                        c, recursion_depth, noise_threshold, sup, ratio, size_par, weight,
                         parameters)
 
     return tree

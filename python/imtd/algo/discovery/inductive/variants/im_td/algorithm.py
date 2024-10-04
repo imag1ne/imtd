@@ -49,7 +49,7 @@ class Parameters(Enum):
     TAU_LOOP_KEY = "tau_loop"
 
 
-def apply(logp, logm, similarity_matrix, parameters=None, sup=None, ratio=None, size_par=None):
+def apply(logp, logm, similarity_matrix, parameters=None, sup=None, ratio=None, size_par=None, weight=None):
     """
     Apply the IM algorithm to a log obtaining a Petri net along with an initial and final marking
 
@@ -75,7 +75,7 @@ def apply(logp, logm, similarity_matrix, parameters=None, sup=None, ratio=None, 
         parameters = {}
 
     process_tree = apply_tree(logp, logm, similarity_matrix, parameters=parameters, sup=sup, ratio=ratio,
-                              size_par=size_par)
+                              size_par=size_par, weight=weight)
     net, initial_marking, final_marking = tree_to_petri.apply(process_tree)
     return net, initial_marking, final_marking
 
@@ -107,7 +107,7 @@ def apply_variants(variants, parameters=None):
 
 
 @deprecation.deprecated('2.2.10', '3.0.0', details='use newer IM implementation (IM_CLEAN)')
-def apply_tree(logp, logm, similarity_matrix, parameters=None, sup=None, ratio=None, size_par=None):
+def apply_tree(logp, logm, similarity_matrix, parameters=None, sup=None, ratio=None, size_par=None, weight=None):
     """
     Apply the IM algorithm to a log obtaining a process tree
 
@@ -148,7 +148,7 @@ def apply_tree(logp, logm, similarity_matrix, parameters=None, sup=None, ratio=N
     sub = subtree.make_tree(logp, logm, dfgp, dfgp, start_activitiesp,
                             end_activitiesp, similarity_matrix, case_id_trace_index_map_plus,
                             case_id_trace_index_map_minus, edge_case_id_map,
-                            c, recursion_depth, 0.0, sup, ratio, size_par, parameters)
+                            c, recursion_depth, 0.0, sup, ratio, size_par, weight, parameters)
 
     process_tree = get_tree_repr_implain.get_repr(sub, 0, contains_empty_traces=contains_empty_traces)
     # Ensures consistency to the parent pointers in the process tree

@@ -25,6 +25,7 @@ def main():
     imtd_results = {key: [] for key in measurement_keys}
     imtd_results['support'] = []
     imtd_results['ratio'] = []
+    imtd_results['weight'] = []
     for dirpath, dirnames, filenames in data_path.walk():
         for filename in filenames:
             filepath = dirpath.joinpath(filename)
@@ -51,6 +52,8 @@ def main():
                     imtd_results['support'].append(support)
                     ratio = params[1]
                     imtd_results['ratio'].append(ratio)
+                    weight = params[2]
+                    imtd_results['weight'].append(weight)
                     load_data_to_dict(filepath, imtd_results, measurement_keys)
 
     imf_df = pd.DataFrame(imf_results)
@@ -101,12 +104,13 @@ def parse_data_filename(filename: str) -> tuple[str, list[float]] | None:
             return variant, [support, ratio]
         case 'imtd':
             if len(filename_parts) < 4 or not filename_parts[2].startswith('s') or not filename_parts[3].startswith(
-                    'r'):
+                    'r') or not filename_parts[4].startswith('w'):
                 return None
 
             support = float(filename_parts[2][1:])
-            ratio = float(filename_parts[3][1:].rstrip('.csv'))
-            return variant, [support, ratio]
+            ratio = float(filename_parts[3][1:])
+            weight = float(filename_parts[4][1:].rstrip('.csv'))
+            return variant, [support, ratio, weight]
         case _:
             return None
 
@@ -145,15 +149,22 @@ def plot_imbi_results(imbi_df, savepath: Path):
 
 
 def plot_imtd_results(imtd_df, savepath: Path):
+    # imtd_df_support_group = imtd_df.groupby('support')
+    # for support, df in imtd_df_support_group:
+    #     plot_results(df, 'IMtd-BPIC17 (support={})'.format(support), 'ratio', 'ratio',
+    #                  savepath.joinpath('imtd_fig_s{}.png'.format(support)))
+    #
+    # imtd_df_ratio_group = imtd_df.groupby('ratio')
+    # for ratio, df in imtd_df_ratio_group:
+    #     plot_results(df, 'IMtd-BPIC17 (ratio={})'.format(ratio), 'support', 'support',
+    #                  savepath.joinpath('imtd_fig_r{}.png'.format(ratio)))
+
     imtd_df_support_group = imtd_df.groupby('support')
     for support, df in imtd_df_support_group:
-        plot_results(df, 'IMtd-BPIC17 (support={})'.format(support), 'ratio', 'ratio',
-                     savepath.joinpath('imtd_fig_s{}.png'.format(support)))
-
-    imtd_df_ratio_group = imtd_df.groupby('ratio')
-    for ratio, df in imtd_df_ratio_group:
-        plot_results(df, 'IMtd-BPIC17 (ratio={})'.format(ratio), 'support', 'support',
-                     savepath.joinpath('imtd_fig_r{}.png'.format(ratio)))
+        df_ratio_group = df.groupby('ratio')
+        for ratio, df in df_ratio_group:
+            plot_results(df, 'IMtd-BPIC17 (support={}, ratio={})'.format(support, ratio), 'weight', 'weight',
+                         savepath.joinpath('imtd_fig_s{}_r{}.png'.format(support, ratio)))
 
 
 if __name__ == "__main__":
