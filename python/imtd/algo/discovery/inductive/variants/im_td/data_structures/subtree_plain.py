@@ -22,7 +22,7 @@ from imtd.algo.discovery.dfg import algorithm as dfg_discovery
 from imtd.algo.discovery.inductive.util.petri_el_count import Counts
 from imtd.algo.discovery.inductive.variants.im_bi.util import splitting as split
 from imtd.algo.discovery.inductive.variants.im_td.util import log_utils
-from imtd import evaluate_cuts_for_imbi, find_possible_partitions
+from imtd import evaluate_cuts_for_imbi as evaluate_cuts, find_possible_partitions
 
 
 def generate_nx_graph_from_dfg(dfg: dict[tuple[str, str], float]) -> DiGraph:
@@ -117,6 +117,7 @@ class SubtreePlain:
 
             dfg_art = dfg_discovery.apply(self.log_art, variant=dfg_discovery.Variants.FREQUENCY)
             dfg_art_minus = dfg_discovery.apply(self.log_minus_art, variant=dfg_discovery.Variants.FREQUENCY)
+            dfg_art = filter_dfg(dfg_art, dfg_art_minus, ratio)
 
             nx_graph = generate_nx_graph_from_dfg(dfg_art)
             nx_graph_minus = generate_nx_graph_from_dfg(dfg_art_minus)
@@ -133,13 +134,17 @@ class SubtreePlain:
 
             possible_partitions = find_possible_partitions(nx_graph)
 
+            # cut += evaluate_cuts(possible_partitions, dfg_art, dfg_art_minus, nx_graph, nx_graph_minus,
+            #                      max_flow_graph, max_flow_graph_minus, activities_minus, log_variants,
+            #                      len(self.log), len(self.log_minus), self.case_id_trace_index_map,
+            #                      self.case_id_trace_index_map_minus, self.original_edge_case_id_map,
+            #                      self.edge_case_id_map,
+            #                      self.edge_case_id_map_minus, self.similarity_matrix, feat_scores, feat_scores_togg,
+            #                      sup, ratio,
+            #                      size_par)
             cut += evaluate_cuts(possible_partitions, dfg_art, dfg_art_minus, nx_graph, nx_graph_minus,
                                  max_flow_graph, max_flow_graph_minus, activities_minus, log_variants,
-                                 len(self.log), len(self.log_minus), self.case_id_trace_index_map,
-                                 self.case_id_trace_index_map_minus, self.original_edge_case_id_map,
-                                 self.edge_case_id_map,
-                                 self.edge_case_id_map_minus, self.similarity_matrix, feat_scores, feat_scores_togg,
-                                 sup, ratio,
+                                 len(self.log), len(self.log_minus), feat_scores, feat_scores_togg, sup, ratio,
                                  size_par)
 
             sorted_cuts = sorted(cut, key=lambda x: (
@@ -267,3 +272,13 @@ def get_start_activities_from_dfg_with_artificial_start(dfg, activities):
 
 def get_end_activities_from_dfg_with_artificial_end(dfg, activities):
     return set(s for s, t in dfg if (s in activities and (t == 'end')))
+
+
+def filter_dfg(dfg, dfg_minus, weight):
+    dfg_max_weight = max(dfg.values())
+    dfg_minus_max_weight = max(dfg_minus.values())
+    factor = dfg_max_weight / dfg_minus_max_weight
+    scaled_dfg_minus = defaultdict(float, ((k, v * factor * weight) for k, v in dfg_minus.items()))
+
+    filtered_dfg = {k: v for k, v in dfg.items() if v >= scaled_dfg_minus[k]}
+    return filtered_dfg
