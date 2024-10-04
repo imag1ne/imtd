@@ -83,7 +83,7 @@ def main():
             ratio_process = tqdm(parse_to_float_list(args.ratio))
             for support in support_process:
                 for ratio in ratio_process:
-                    support_process.set_description("Inductive Miner bi (support={}, ratio={})".format(support, ratio))
+                    support_process.set_description("Inductive Miner td (support={}, ratio={})".format(support, ratio))
                     petri_net, initial_marking, final_marking = discover_petri_net_inductive_td(
                         log_p,
                         log_m,
