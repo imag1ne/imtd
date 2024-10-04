@@ -277,11 +277,12 @@ def get_end_activities_from_dfg_with_artificial_end(dfg, activities):
 def filter_dfg(dfg, dfg_minus, weight):
     if len(dfg_minus) == 0:
         return dfg
-    
+
     dfg_max_weight = max(dfg.values())
     dfg_minus_max_weight = max(dfg_minus.values())
     factor = dfg_max_weight / dfg_minus_max_weight
     scaled_dfg_minus = defaultdict(float, ((k, v * factor * weight) for k, v in dfg_minus.items()))
 
-    filtered_dfg = defaultdict(float, ((k, v) for k, v in dfg.items() if v >= scaled_dfg_minus[k]))
+    filtered_dfg = defaultdict(float, ((k, v) for k, v in dfg.items() if
+                                       v >= scaled_dfg_minus[k] or k[0] == 'start' or k[1] == 'end'))
     return filtered_dfg
