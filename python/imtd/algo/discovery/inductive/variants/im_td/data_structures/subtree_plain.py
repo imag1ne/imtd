@@ -284,6 +284,18 @@ def filter_dfg(dfg, dfg_minus, weight):
     factor = dfg_max_weight / dfg_minus_max_weight
     scaled_dfg_minus = defaultdict(float, ((k, v * factor * weight) for k, v in dfg_minus.items()))
 
+    dfg_max_outgoing_weight = nodes_max_outgoing_edge_weight(dfg)
+
     filtered_dfg = defaultdict(float, ((k, v) for k, v in dfg.items() if
-                                       v >= scaled_dfg_minus[k] or k[0] == 'start' or k[1] == 'end'))
+                                       v == dfg_max_outgoing_weight[k[0]] or v >= scaled_dfg_minus[k] or k[
+                                           0] == 'start' or k[1] == 'end'))
     return filtered_dfg
+
+
+def nodes_max_outgoing_edge_weight(dfg):
+    # Get the maximum outgoing edge weight for each node in the Directly-Follows Graph (DFG).
+    max_outgoing_edge_weight = {}
+    for (source, target), weight in dfg.items():
+        max_outgoing_edge_weight[source] = max(max_outgoing_edge_weight[source], weight)
+
+    return max_outgoing_edge_weight
