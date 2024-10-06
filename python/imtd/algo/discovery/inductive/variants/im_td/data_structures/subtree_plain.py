@@ -296,6 +296,9 @@ def nodes_max_outgoing_edge_weight(dfg):
     # Get the maximum outgoing edge weight for each node in the Directly-Follows Graph (DFG).
     max_outgoing_edge_weight = {}
     for (source, target), weight in dfg.items():
-        max_outgoing_edge_weight[source] = max(max_outgoing_edge_weight[source], weight)
+        if source not in max_outgoing_edge_weight:
+            max_outgoing_edge_weight[source] = weight
+        else:
+            max_outgoing_edge_weight[source] = max(max_outgoing_edge_weight[source], weight)
 
     return max_outgoing_edge_weight
