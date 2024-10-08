@@ -233,7 +233,7 @@ def calculate_missing_loop(trace_num, start_activities, end_activities, dfg, sup
     for x in start_activities:
         for y in end_activities:
             n = max(0, trace_num * sup * (start_activities[x] / sum(start_activities.values())) * (
-                    end_activities[y] / sum(end_activities.values())) - dfg[(y, x)])
+                    end_activities[y] / sum(end_activities.values())) - dfg.get((y, x), 0))
             missing_loop += n
     return missing_loop
 
