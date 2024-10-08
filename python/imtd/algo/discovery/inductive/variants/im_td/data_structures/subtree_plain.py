@@ -190,7 +190,7 @@ class SubtreePlain:
 
         for x in start_acts_plus:
             for y in end_acts_plus:
-                c_rec += dfg_plus[(y, x)]
+                c_rec += dfg_plus.get((y, x), 0)
 
         if not rej_tau_loop and c_rec > 0:
             cut.append(((start_acts_plus, end_acts_plus), 'loop_tau', missing_loop_plus, missing_loop_minus,
