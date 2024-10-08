@@ -170,20 +170,12 @@ pub fn filter_dfg<'a>(
 
     // Identify and keep the max outgoing edge for each node
     let mut max_outgoing_edges = HashMap::new();
-    let mut max_incoming_edges = HashMap::new();
     for (&(source, target), &weight) in &dfg {
         let (max_target, max_outgoing_weight) =
             max_outgoing_edges.entry(source).or_insert((target, weight));
-        let (max_source, max_incoming_weight) =
-            max_incoming_edges.entry(target).or_insert((source, weight));
         if weight > *max_outgoing_weight {
             *max_target = target;
             *max_outgoing_weight = weight;
-        }
-
-        if weight > *max_incoming_weight {
-            *max_source = source;
-            *max_incoming_weight = weight;
         }
     }
 
@@ -191,21 +183,13 @@ pub fn filter_dfg<'a>(
         .into_iter()
         .map(|(source, (target, weight))| ((source, target), weight))
         .collect::<HashMap<_, _>>();
-    let max_incoming_edges = max_incoming_edges
-        .into_iter()
-        .map(|(target, (source, weight))| ((source, target), weight))
-        .collect::<HashMap<_, _>>();
 
     // Prepare the list of edges that can be potentially removed
     let mut removable_edges = vec![];
     let mut total_volume = 0;
     for (&edge, &weight) in &dfg {
         let (source, target) = edge;
-        if max_outgoing_edges.contains_key(&edge)
-            || max_incoming_edges.contains_key(&edge)
-            || source == "start"
-            || target == "end"
-        {
+        if max_outgoing_edges.contains_key(&edge) || source == "start" || target == "end" {
             continue;
         }
 
