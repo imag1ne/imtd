@@ -22,7 +22,7 @@ from imtd.algo.discovery.dfg import algorithm as dfg_discovery
 from imtd.algo.discovery.inductive.util.petri_el_count import Counts
 from imtd.algo.discovery.inductive.variants.im_bi.util import splitting as split
 from imtd.algo.discovery.inductive.variants.im_td.util import log_utils
-from imtd import evaluate_cuts_for_imbi as evaluate_cuts, find_possible_partitions
+from imtd import evaluate_cuts_for_imbi as evaluate_cuts, find_possible_partitions, filter_dfg as filter_dfg_knapsack
 
 
 def generate_nx_graph_from_dfg(dfg: dict[tuple[str, str], float]) -> DiGraph:
@@ -118,7 +118,7 @@ class SubtreePlain:
 
             dfg_art = dfg_discovery.apply(self.log_art, variant=dfg_discovery.Variants.FREQUENCY)
             dfg_art_minus = dfg_discovery.apply(self.log_minus_art, variant=dfg_discovery.Variants.FREQUENCY)
-            dfg_art = filter_dfg(dfg_art, dfg_art_minus, self.weight)
+            dfg_art = filter_dfg_knapsack(dfg_art, dfg_art_minus, self.weight)
 
             nx_graph = generate_nx_graph_from_dfg(dfg_art)
             nx_graph_minus = generate_nx_graph_from_dfg(dfg_art_minus)
@@ -275,20 +275,86 @@ def get_end_activities_from_dfg_with_artificial_end(dfg, activities):
     return set(s for s, t in dfg if (s in activities and (t == 'end')))
 
 
-def filter_dfg(dfg, dfg_minus, weight):
+def filter_dfg(dfg: dict[tuple[str, str], float], dfg_minus: dict[tuple[str, str], float], theta: float) -> \
+        dict[tuple[str, str], float]:
+    """
+    Filters the desirable DFG based on the undesirable DFG using dynamic programming.
+
+    Parameters:
+    - desirable_dfg (dict): A dictionary with keys as (source, target) tuples and values as edge weights.
+    - undesirable_dfg (dict): A dictionary with keys as (source, target) tuples and values as edge weights.
+    - theta (float): The percentage of total desirable edge weight to filter out (0 <= theta <= 1).
+
+    Returns:
+    - filtered_dfg (dict): The filtered desirable DFG.
+    """
+    # Ensure theta is between 0 and 1
+    if not 0 <= theta <= 1:
+        raise ValueError("Theta must be between 0 and 1.")
+
     if len(dfg_minus) == 0:
         return dfg
 
-    dfg_max_weight = max(dfg.values())
-    dfg_minus_max_weight = max(dfg_minus.values())
-    factor = dfg_max_weight / dfg_minus_max_weight
-    scaled_dfg_minus = defaultdict(float, ((k, v * factor * weight) for k, v in dfg_minus.items()))
+    # Step 1: Identify and keep the max outgoing edge for each node
+    max_edges = {}
+    outgoing_edges = defaultdict(list)
+    for (source, target), weight in dfg.items():
+        outgoing_edges[source].append((target, weight))
 
-    dfg_max_outgoing_weight = nodes_max_outgoing_edge_weight(dfg)
+    # Find the max outgoing edge for each node
+    for source, edges in outgoing_edges.items():
+        max_edge = max(edges, key=lambda x: x[1])  # Edge with the maximum weight
+        max_target, max_weight = max_edge
+        max_edges[(source, max_target)] = max_weight
 
-    filtered_dfg = defaultdict(float, ((k, v) for k, v in dfg.items() if
-                                       v == dfg_max_outgoing_weight[k[0]] or v >= scaled_dfg_minus[k] or k[
-                                           0] == 'start' or k[1] == 'end'))
+    # Prepare the list of edges that can be potentially removed
+    removable_edges = []
+    total_volume = 0
+    for edge, weight in dfg.items():
+        if edge not in max_edges:
+            volume = weight  # Volume is the weight in desirable DFG
+            value = dfg_minus.get(edge, 0)  # Value is the weight in undesirable DFG
+            removable_edges.append({'edge': edge, 'volume': volume, 'value': value})
+            total_volume += volume
+
+    # Calculate the total capacity
+    capacity = int(theta * (sum(dfg.values())))
+
+    # Edge case: If no edges can be removed
+    if not removable_edges or total_volume <= 0:
+        return dfg
+
+    # Initialize DP table
+    n = len(removable_edges)
+    dp = [[0] * (capacity + 1) for _ in range(n + 1)]
+    # Build DP table
+    for i in range(1, n + 1):
+        edge = removable_edges[i - 1]
+        v = int(edge['volume'])
+        w = int(edge['value'])
+        for c in range(1, capacity + 1):
+            if c - v < 0:
+                dp[i][c] = dp[i - 1][c]
+            else:
+                dp[i][c] = max(dp[i - 1][c], dp[i - 1][c - v] + w)
+
+    # Find selected edges
+    c = capacity
+    edges_to_remove = set()
+    for i in range(n, 0, -1):
+        if dp[i][c] != dp[i - 1][c]:
+            edge = removable_edges[i - 1]['edge']
+            edges_to_remove.add(edge)
+            c -= removable_edges[i - 1]['volume']
+
+    # Remove selected edges from the desirable DFG
+    filtered_dfg = dfg.copy()
+    for edge in edges_to_remove:
+        del filtered_dfg[edge]
+
+    # Ensure max outgoing edges are kept
+    filtered_dfg.update(max_edges)
+
     return filtered_dfg
 
 

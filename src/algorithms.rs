@@ -1,6 +1,7 @@
 use crate::graph::py_graph::PyGraph;
 use petgraph::Direction;
 use pyo3::pyfunction;
+use std::collections::HashMap;
 use std::{
     collections::{BTreeSet, HashSet},
     vec,
@@ -149,5 +150,214 @@ pub fn add_start_and_end(
 
     if has_end_activities {
         set.insert("end");
+    }
+}
+
+#[pyfunction]
+pub fn filter_dfg<'a>(
+    dfg: HashMap<(&'a str, &'a str), usize>,
+    dfg_minus: HashMap<(&str, &str), usize>,
+    theta: f64,
+) -> HashMap<(&'a str, &'a str), usize> {
+    assert!(
+        theta >= 0.0 && theta <= 1.0,
+        "Theta must be between 0 and 1"
+    );
+
+    if dfg_minus.is_empty() {
+        return dfg.clone();
+    }
+
+    // Identify and keep the max outgoing edge for each node
+    let mut max_outgoing_edges = HashMap::new();
+    for (&(source, target), &weight) in &dfg {
+        let (max_target, max_weight) = max_outgoing_edges.entry(source).or_insert((target, weight));
+        if weight > *max_weight {
+            *max_target = target;
+            *max_weight = weight;
+        }
+    }
+
+    let max_outgoing_edges = max_outgoing_edges
+        .into_iter()
+        .map(|(source, (target, weight))| ((source, target), weight))
+        .collect::<HashMap<_, _>>();
+
+    // Prepare the list of edges that can be potentially removed
+    let mut removable_edges = vec![];
+    let mut total_volume = 0;
+    for (&edge, &weight) in &dfg {
+        if max_outgoing_edges.contains_key(&edge) {
+            continue;
+        }
+
+        let (source, target) = edge;
+        let volume = weight;
+        let value = dfg_minus.get(&(source, target)).copied().unwrap_or(0);
+        let remove_edge = RemoveEdge::new(source, target, volume, value);
+        removable_edges.push(remove_edge);
+        total_volume += volume;
+    }
+
+    // Edge case: If no edges can be removed
+    if removable_edges.is_empty() || total_volume == 0 {
+        return dfg.clone();
+    }
+
+    // Calculate the total capacity
+    let capacity = (dfg.values().sum::<usize>() as f64 * theta) as usize;
+
+    // Initialize DP table
+    let n = removable_edges.len();
+    let mut dp = vec![vec![0; capacity + 1]; n + 1];
+    // Build the DP table
+    for i in 1..=n {
+        let item = &removable_edges[i - 1];
+        let v = item.volume;
+        let w = item.value;
+        for c in 1..=capacity {
+            if item.volume > c {
+                dp[i][c] = dp[i - 1][c];
+            } else {
+                dp[i][c] = dp[i - 1][c].max(dp[i - 1][c - v] + w);
+            }
+        }
+    }
+
+    // Find the selected edges
+    let mut c = capacity;
+    let mut edges_to_remove = HashSet::new();
+    for i in (1..=n).rev() {
+        if dp[i][c] != dp[i - 1][c] {
+            let edge = &removable_edges[i - 1];
+            edges_to_remove.insert(edge.edge());
+            c -= edge.volume;
+        }
+    }
+
+    // Remove selected edges from the desirable DFG
+    let filtered_dfg = dfg
+        .into_iter()
+        .filter(|(edge, _)| !edges_to_remove.contains(edge))
+        .collect();
+
+    filtered_dfg
+}
+
+#[derive(Debug)]
+struct RemoveEdge<'a> {
+    source: &'a str,
+    target: &'a str,
+    volume: usize,
+    value: usize,
+}
+
+impl<'a> RemoveEdge<'a> {
+    pub fn new(source: &'a str, target: &'a str, volume: usize, value: usize) -> Self {
+        Self {
+            source,
+            target,
+            volume,
+            value,
+        }
+    }
+
+    pub fn edge(&self) -> (&'a str, &'a str) {
+        (self.source, self.target)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_filter_dfg_basic_functionality() {
+        let desirable_dfg = HashMap::from([
+            (("A", "B"), 10),
+            (("A", "C"), 5),
+            (("B", "C"), 7),
+            (("C", "D"), 3),
+            (("B", "D"), 4),
+        ]);
+        let undesirable_dfg = HashMap::from([
+            (("A", "C"), 6),
+            (("B", "C"), 2),
+            (("C", "D"), 5),
+            (("B", "D"), 8),
+        ]);
+        let theta = 0.3;
+        let filtered_dfg = filter_dfg(desirable_dfg, undesirable_dfg, theta);
+        let expected_dfg = HashMap::from([
+            (("A", "B"), 10),
+            (("A", "C"), 5),
+            (("B", "C"), 7),
+            (("C", "D"), 3),
+        ]);
+
+        assert_eq!(filtered_dfg, expected_dfg);
+    }
+
+    #[test]
+    fn test_filter_dfg_no_edges_to_remove() {
+        let desirable_dfg = HashMap::from([(("A", "B"), 10), (("A", "C"), 5)]);
+        let undesirable_dfg = HashMap::new();
+        let theta = 0.5;
+        let filtered_dfg = filter_dfg(desirable_dfg.clone(), undesirable_dfg, theta);
+
+        assert_eq!(filtered_dfg, desirable_dfg);
+    }
+
+    #[test]
+    fn test_filter_dfg_all_edges_removed() {
+        let desirable_dfg = HashMap::from([(("A", "B"), 2), (("A", "C"), 3), (("B", "C"), 1)]);
+        let undesirable_dfg = HashMap::from([(("A", "B"), 5), (("A", "C"), 6), (("B", "C"), 4)]);
+        let theta = 1.0;
+        let filtered_dfg = filter_dfg(desirable_dfg, undesirable_dfg, theta);
+        let expected_dfg = HashMap::from([(("A", "C"), 3), (("B", "C"), 1)]);
+
+        assert_eq!(filtered_dfg, expected_dfg);
+    }
+
+    #[test]
+    fn test_filter_dfg_different_theta_values() {
+        // Desirable DFG
+        let desirable_dfg = HashMap::from([
+            (("A", "B"), 4),
+            (("A", "C"), 6),
+            (("A", "D"), 3),
+            (("B", "D"), 5),
+            (("C", "D"), 2),
+        ]);
+
+        // Undesirable DFG
+        let undesirable_dfg = HashMap::from([
+            (("A", "B"), 3),
+            (("A", "C"), 1),
+            (("A", "D"), 5),
+            (("C", "D"), 4),
+        ]);
+
+        // Test with theta = 0.2
+        let theta_low = 0.2;
+        let filtered_dfg_low =
+            filter_dfg(desirable_dfg.clone(), undesirable_dfg.clone(), theta_low);
+
+        let expected_dfg_low = HashMap::from([
+            (("A", "B"), 4),
+            (("A", "C"), 6),
+            (("B", "D"), 5),
+            (("C", "D"), 2),
+        ]);
+
+        assert_eq!(filtered_dfg_low, expected_dfg_low);
+
+        // Test with theta = 0.5
+        let theta_high = 0.5;
+        let filtered_dfg_high = filter_dfg(desirable_dfg.clone(), undesirable_dfg, theta_high);
+
+        let expected_dfg_high = HashMap::from([(("A", "C"), 6), (("B", "D"), 5), (("C", "D"), 2)]);
+
+        assert_eq!(filtered_dfg_high, expected_dfg_high);
     }
 }
