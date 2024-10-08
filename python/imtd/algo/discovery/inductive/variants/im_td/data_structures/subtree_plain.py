@@ -118,7 +118,8 @@ class SubtreePlain:
 
             dfg_art = dfg_discovery.apply(self.log_art, variant=dfg_discovery.Variants.FREQUENCY)
             dfg_art_minus = dfg_discovery.apply(self.log_minus_art, variant=dfg_discovery.Variants.FREQUENCY)
-            dfg_art = filter_dfg_knapsack(dfg_art, dfg_art_minus, self.weight)
+            filtered_dfg_art = filter_dfg_knapsack(dfg_art, dfg_art_minus, self.weight)
+            dfg_art = Counter(filtered_dfg_art)
 
             nx_graph = generate_nx_graph_from_dfg(dfg_art)
             nx_graph_minus = generate_nx_graph_from_dfg(dfg_art_minus)
@@ -190,7 +191,7 @@ class SubtreePlain:
 
         for x in start_acts_plus:
             for y in end_acts_plus:
-                c_rec += dfg_plus.get((y, x), 0)
+                c_rec += dfg_plus[(y, x)]
 
         if not rej_tau_loop and c_rec > 0:
             cut.append(((start_acts_plus, end_acts_plus), 'loop_tau', missing_loop_plus, missing_loop_minus,
@@ -233,7 +234,7 @@ def calculate_missing_loop(trace_num, start_activities, end_activities, dfg, sup
     for x in start_activities:
         for y in end_activities:
             n = max(0, trace_num * sup * (start_activities[x] / sum(start_activities.values())) * (
-                    end_activities[y] / sum(end_activities.values())) - dfg.get((y, x), 0))
+                    end_activities[y] / sum(end_activities.values())) - dfg[(y, x)])
             missing_loop += n
     return missing_loop
 
