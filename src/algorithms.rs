@@ -200,11 +200,15 @@ pub fn filter_dfg<'a>(
     let mut removable_edges = vec![];
     let mut total_volume = 0;
     for (&edge, &weight) in &dfg {
-        if max_outgoing_edges.contains_key(&edge) || max_incoming_edges.contains_key(&edge) {
+        let (source, target) = edge;
+        if max_outgoing_edges.contains_key(&edge)
+            || max_incoming_edges.contains_key(&edge)
+            || source == "start"
+            || target == "end"
+        {
             continue;
         }
 
-        let (source, target) = edge;
         let volume = weight;
         let value = dfg_minus.get(&(source, target)).copied().unwrap_or(0);
         let remove_edge = RemoveEdge::new(source, target, volume, value);
