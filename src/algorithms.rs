@@ -170,7 +170,7 @@ pub fn filter_dfg<'a>(
 
     // Identify and keep the max outgoing edge for each node
     let mut max_outgoing_edges = HashMap::new();
-    let mut max_incoming_edges = HashSet::new();
+    let mut max_incoming_edges = HashMap::new();
     for (&(source, target), &weight) in &dfg {
         let (max_target, max_outgoing_weight) =
             max_outgoing_edges.entry(source).or_insert((target, weight));
