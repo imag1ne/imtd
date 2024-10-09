@@ -206,7 +206,7 @@ pub fn filter_dfg<'a>(
     }
 
     // Calculate the total capacity
-    let capacity = (dfg.values().sum::<usize>() as f64 * theta) as usize;
+    let capacity = (total_volume as f64 * theta) as usize;
 
     // Initialize DP table
     let n = removable_edges.len();

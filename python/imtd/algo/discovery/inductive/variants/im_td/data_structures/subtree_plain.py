@@ -323,7 +323,7 @@ def filter_dfg(dfg: dict[tuple[str, str], float], dfg_minus: dict[tuple[str, str
             total_volume += volume
 
     # Calculate the total capacity
-    capacity = int(theta * (sum(dfg.values())))
+    capacity = int(theta * total_volume)
 
     # Edge case: If no edges can be removed
     if not removable_edges or total_volume <= 0:
