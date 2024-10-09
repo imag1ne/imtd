@@ -19,6 +19,9 @@ def main():
     measurement_keys = {'acc', 'F1', 'precision', 'fitP', 'fitM', 'acc_perf', 'F1_perf', 'acc_ML', 'prc_ML', 'rec_ML'}
     imf_results = {key: [] for key in measurement_keys}
     imf_results['threshold'] = []
+    imfbi_results = {key: [] for key in measurement_keys}
+    imfbi_results['threshold'] = []
+    imfbi_results['weight'] = []
     imbi_results = {key: [] for key in measurement_keys}
     imbi_results['support'] = []
     imbi_results['ratio'] = []
@@ -40,6 +43,13 @@ def main():
                     imf_results['threshold'].append(threshold)
                     load_data_to_dict(filepath, imf_results, measurement_keys)
 
+                case 'imfbi':
+                    threshold = params[0]
+                    imfbi_results['threshold'].append(threshold)
+                    weight = params[1]
+                    imfbi_results['weight'].append(weight)
+                    load_data_to_dict(filepath, imfbi_results, measurement_keys)
+
                 case 'imbi':
                     support = params[0]
                     imbi_results['support'].append(support)
@@ -57,10 +67,12 @@ def main():
                     load_data_to_dict(filepath, imtd_results, measurement_keys)
 
     imf_df = pd.DataFrame(imf_results)
+    imfbi_df = pd.DataFrame(imfbi_results)
     imbi_df = pd.DataFrame(imbi_results)
     imtd_df = pd.DataFrame(imtd_results)
 
     plot_imf_results(imf_df, data_path)
+    plot_imfbi_results(imfbi_df, data_path)
     plot_imbi_results(imbi_df, data_path)
     plot_imtd_results(imtd_df, data_path)
 
@@ -94,6 +106,14 @@ def parse_data_filename(filename: str) -> tuple[str, list[float]] | None:
 
             threshold = float(filename_parts[2][1:4])
             return variant, [threshold]
+        case 'imfbi':
+            if len(filename_parts) < 4 or not filename_parts[2].startswith('t') or not filename_parts[3].startswith(
+                    'w'):
+                return None
+
+            threshold = float(filename_parts[2][1:])
+            weight = float(filename_parts[3][1:].rstrip('.csv'))
+            return variant, [threshold, weight]
         case 'imbi':
             if len(filename_parts) < 4 or not filename_parts[2].startswith('s') or not filename_parts[3].startswith(
                     'r'):
@@ -116,6 +136,9 @@ def parse_data_filename(filename: str) -> tuple[str, list[float]] | None:
 
 
 def plot_results(df, title, xlabel, xkey, savepath):
+    if len(df[xkey]) == 0:
+        return
+
     df = df.sort_values(by=xkey)
     plt.plot(df[xkey], df['precision'], label='Precision', color='red', marker='s', linestyle='-', linewidth=2)
     plt.plot(df[xkey], df['fitP'], label='Fitness', color='blue', marker='s', linestyle='-', linewidth=2)
@@ -134,6 +157,18 @@ def plot_results(df, title, xlabel, xkey, savepath):
 
 def plot_imf_results(imf_df, savepath: Path):
     plot_results(imf_df, 'IMF-BPIC17', 'f', 'threshold', savepath.joinpath('imf_fig.png'))
+
+
+def plot_imfbi_results(imfbi_df, savepath: Path):
+    imfbi_df_threshold_group = imfbi_df.groupby('threshold')
+    for threshold, df in imfbi_df_threshold_group:
+        plot_results(df, 'IMfbi-BPIC17 (threshold={})'.format(threshold), 'weight', 'weight',
+                     savepath.joinpath('imfbi_fig_t{}.png'.format(threshold)))
+
+    imfbi_df_weight_group = imfbi_df.groupby('weight')
+    for weight, df in imfbi_df_weight_group:
+        plot_results(df, 'IMfbi-BPIC17 (weight={})'.format(weight), 'threshold', 'threshold',
+                     savepath.joinpath('imfbi_fig_w{}.png'.format(weight)))
 
 
 def plot_imbi_results(imbi_df, savepath: Path):

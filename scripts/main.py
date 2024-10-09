@@ -5,7 +5,8 @@ import numpy as np
 import time
 from pathlib import Path
 
-from imtd import discover_petri_net_inductive_bi, discover_petri_net_inductive_td, Optimzation_Goals
+from imtd import discover_petri_net_inductive, discover_petri_net_inductive_bi, discover_petri_net_inductive_td, \
+    Optimzation_Goals
 
 
 def parse_args():
@@ -16,6 +17,13 @@ def parse_args():
     im_parser = subparsers.add_parser('im', help='Inductive Miner')
     im_parser.add_argument('-p', '--desirable-log', type=str, required=True)
     im_parser.add_argument('-m', '--undesirable-log', type=str, required=False)
+    im_parser.add_argument('-t', '--noise-threshold', type=float, required=False)
+    im_parser.add_argument('-o', '--output', type=str, default='output')
+
+    im_parser = subparsers.add_parser('imfbi', help='Inductive Miner fbi')
+    im_parser.add_argument('-p', '--desirable-log', type=str, required=True)
+    im_parser.add_argument('-m', '--undesirable-log', type=str, required=False)
+    im_parser.add_argument('-w', '--weight', type=float, required=False)
     im_parser.add_argument('-t', '--noise-threshold', type=float, required=False)
     im_parser.add_argument('-o', '--output', type=str, default='output')
 
@@ -69,6 +77,11 @@ def main():
             net, initial_marking, final_marking = pm4py.discover_petri_net_inductive(log_p,
                                                                                      noise_threshold=noise_threshold,
                                                                                      multi_processing=True)
+        case 'imfbi':
+            weight = args.weight or 0.0
+            noise_threshold = args.noise_threshold or 0.0
+            net, initial_marking, final_marking = discover_petri_net_inductive(log_p, log_m, weight=weight,
+                                                                               noise_threshold=noise_threshold)
         case 'imbi':
             net, initial_marking, final_marking = discover_petri_net_inductive_bi(
                 log_p,
@@ -104,6 +117,10 @@ def main():
             pnml_file_name = "/petri_im"
             pnsvg_file_name = "/petri_im.svg"
             mes_filename = "/mes_im.csv"
+        case 'imfbi':
+            pnml_file_name = "/petri_imfbi_t" + str(args.noise_threshold) + "_w" + str(args.weight)
+            pnsvg_file_name = "/petri_imfbi_t" + str(args.noise_threshold) + "_w" + str(args.weight) + ".svg"
+            mes_filename = "/mes_imfbi_t" + str(args.noise_threshold) + "_w" + str(args.weight) + ".csv"
         case 'imbi':
             pnml_file_name = "/petri_imbi_r" + str(args.ratio) + "_s" + str(args.support)
             pnsvg_file_name = "/petri_imbi_r" + str(args.ratio) + "_s" + str(args.support) + ".svg"

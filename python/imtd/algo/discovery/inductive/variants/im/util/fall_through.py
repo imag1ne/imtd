@@ -141,7 +141,7 @@ def act_once_per_trace(l, activities, activity_key):
 
 
 def activity_concurrent(self, l, activities, activity_key, parameters=None):
-    from pm4py.algo.discovery.inductive.variants.im.data_structures import subtree_plain as subtree
+    from imtd.algo.discovery.inductive.variants.im.data_structures import subtree_plain as subtree
 
     small_log = obj.EventLog()
     test_log = obj.EventLog()
@@ -153,7 +153,7 @@ def activity_concurrent(self, l, activities, activity_key, parameters=None):
     for key, value in activities_copy.items():  # iterate through activities (saved in key)
 
         test_log = filter_activity_use_idx(l, key, activity_key, idx)
-        #test_log = filter_activity_from_log(l, key, activity_key)
+        # test_log = filter_activity_from_log(l, key, activity_key)
         # unsure about this one:
         contains_empty_trace = False
         for trace in test_log:
@@ -165,7 +165,8 @@ def activity_concurrent(self, l, activities, activity_key, parameters=None):
         # more efficient deepcopy
         self_copy = deepcopy(self)
         cut = subtree.SubtreePlain.check_for_cut(self_copy, test_log,
-                                                 key, parameters=parameters)  # check if leaving out act, leads to finding cut
+                                                 key,
+                                                 parameters=parameters)  # check if leaving out act, leads to finding cut
         if cut:
             # save act to small_trace, so that it can be appended as leaf later on
             for trace in l:

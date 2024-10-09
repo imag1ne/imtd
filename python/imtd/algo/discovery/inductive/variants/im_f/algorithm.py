@@ -1,4 +1,3 @@
-
 import pkgutil
 
 from pm4py import util as pmutil
@@ -39,7 +38,7 @@ class Parameters(Enum):
     TAU_LOOP_KEY = "tau_loop"
 
 
-def apply(log, parameters):
+def apply(log, log_m, weight, noise_threshold, parameters):
     """
     Apply the IM_F algorithm to a log obtaining a Petri net along with an initial and final marking
 
@@ -71,11 +70,12 @@ def apply(log, parameters):
             return apply_variants(vars, parameters=parameters)
 
     log = converter.apply(log, parameters=parameters)
-    net, initial_marking, final_marking = tree_to_petri.apply(apply_tree(log, parameters))
+    net, initial_marking, final_marking = tree_to_petri.apply(
+        apply_tree(log, log_m, weight, noise_threshold, parameters))
     return net, initial_marking, final_marking
 
 
-def apply_variants(variants, parameters=None):
+def apply_variants(variants, variants_m, weight, noise_threshold, parameters=None):
     """
     Apply the IM_F algorithm to a dictionary of variants, obtaining a Petri net along with an initial and final marking
 
@@ -97,12 +97,13 @@ def apply_variants(variants, parameters=None):
     final_marking
         Final marking
     """
-    net, im, fm = tree_to_petri.apply(apply_tree_variants(variants, parameters=parameters))
+    net, im, fm = tree_to_petri.apply(
+        apply_tree_variants(variants, variants_m, weight, noise_threshold, parameters=parameters))
     return net, im, fm
 
 
 @deprecation.deprecated('2.2.10', '3.0.0', details='use newer IM implementation (IM_CLEAN)')
-def apply_tree(log, parameters):
+def apply_tree(log, log_m, weight, noise_threshold, parameters):
     """
     Apply the IM_FF algorithm to a log obtaining a process tree
 
@@ -129,7 +130,8 @@ def apply_tree(log, parameters):
 
         if type(log) is pd.DataFrame:
             vars = variants_get.get_variants_count(log, parameters=parameters)
-            return apply_tree_variants(vars, parameters=parameters)
+            vars_m = variants_get.get_variants_count(log_m, parameters=parameters)
+            return apply_tree_variants(vars, vars_m, weight, noise_threshold, parameters=parameters)
 
     activity_key = exec_utils.get_param_value(Parameters.ACTIVITY_KEY, parameters,
                                               pmutil.xes_constants.DEFAULT_NAME_KEY)
@@ -138,10 +140,11 @@ def apply_tree(log, parameters):
     # keep only the activity attribute (since the others are not used)
     log = filtering_utils.keep_only_one_attribute_per_event(log, activity_key)
 
-    noise_threshold = exec_utils.get_param_value(Parameters.NOISE_THRESHOLD, parameters,
-                                                 shared_constants.NOISE_THRESHOLD_IMF)
+    # noise_threshold = exec_utils.get_param_value(Parameters.NOISE_THRESHOLD, parameters,
+    #                                              shared_constants.NOISE_THRESHOLD_IMF)
 
     dfg = [(k, v) for k, v in dfg_inst.apply(log, parameters=parameters).items() if v > 0]
+    dfg_m = [(k, v) for k, v in dfg_inst.apply(log_m, parameters=parameters).items() if v > 0]
     c = Counts()
     activities = attributes_get.get_attribute_values(log, activity_key)
     start_activities = list(start_activities_get.get_start_activities(log, parameters=parameters).keys())
@@ -159,7 +162,8 @@ def apply_tree(log, parameters):
     threshold = noise_threshold * max_value
 
     recursion_depth = 0
-    sub = subtree.make_tree(log, dfg, dfg, dfg, activities, c, recursion_depth, noise_threshold, threshold,
+    sub = subtree.make_tree(log, dfg, dfg_m, dfg, dfg, activities, c, recursion_depth, weight, noise_threshold,
+                            threshold,
                             start_activities, end_activities,
                             start_activities, end_activities, parameters=parameters)
 

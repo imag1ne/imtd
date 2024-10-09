@@ -5,12 +5,13 @@ import numpy as np
 from pathlib import Path
 from tqdm import tqdm
 
-from imtd import discover_petri_net_inductive_bi, discover_petri_net_inductive_td, Optimzation_Goals
+from imtd import discover_petri_net_inductive, discover_petri_net_inductive_bi, discover_petri_net_inductive_td, \
+    Optimzation_Goals
 
 
 def parse_args():
     parser = argparse.ArgumentParser(prog='experiment', description='experiment')
-    parser.add_argument('-v', '--variants', type=str, required=False, default='fbt')
+    parser.add_argument('-v', '--variants', type=str, required=False, default='fbtk')
     parser.add_argument('-t', '--noise-threshold', type=str, required=False, default=None)
     parser.add_argument('-s', '--support', type=str, required=False)
     parser.add_argument('-r', '--ratio', type=str, required=False)
@@ -102,6 +103,23 @@ def main():
                         save_petri_net(petri_net, initial_marking, final_marking, output, model_filename)
                         mes = Optimzation_Goals.apply_petri(log_p, log_m, petri_net, initial_marking, final_marking)
                         save_measurements(mes, output, model_filename)
+
+    if 'k' in variants:
+        weight_process = tqdm(parse_to_float_list(args.weight), desc='Inductive Miner fbi')
+        nt_process = tqdm(parse_to_float_list(args.noise_threshold), desc='Inductive Miner fbi')
+        for noise_threshold in nt_process:
+            for weight in weight_process:
+                nt_process.set_description(
+                    "Inductive Miner fbi (threshold={}, weight={})".format(noise_threshold, weight))
+                petri_net, initial_marking, final_marking = discover_petri_net_inductive(log_p,
+                                                                                         log_m,
+                                                                                         weight, noise_threshold)
+                suffix = 't{}_w{}'.format(noise_threshold, weight)
+                # save the petri net
+                model_filename = 'imf_petri_{}'.format(suffix)
+                save_petri_net(petri_net, initial_marking, final_marking, output, model_filename)
+                mes = Optimzation_Goals.apply_petri(log_p, log_m, petri_net, initial_marking, final_marking)
+                save_measurements(mes, output, model_filename)
 
     print("Completed discovering petri nets and evaluating the models.")
 
