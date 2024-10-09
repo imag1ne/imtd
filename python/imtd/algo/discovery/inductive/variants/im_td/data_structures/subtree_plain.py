@@ -75,6 +75,7 @@ class SubtreePlain:
     parameters: Optional[Mapping[Any, Any]] = None
 
     dfg: Optional[Mapping[tuple[str, str], int]] = None
+    original_dfg_art_minus: Optional[Mapping[tuple[str, str], int]] = None
     activities: Optional[Set[str]] = None
     edge_case_id_map: Optional[Mapping[tuple[str, str], Set[str]]] = None
     edge_case_id_map_minus: Optional[Mapping[tuple[str, str], Set[str]]] = None
@@ -117,7 +118,10 @@ class SubtreePlain:
             feat_scores, feat_scores_togg = initialize_feature_scores(self.log_art, self.log_minus_art)
 
             dfg_art = dfg_discovery.apply(self.log_art, variant=dfg_discovery.Variants.FREQUENCY)
-            dfg_art_minus = dfg_discovery.apply(self.log_minus_art, variant=dfg_discovery.Variants.FREQUENCY)
+            # dfg_art_minus = dfg_discovery.apply(self.log_minus_art, variant=dfg_discovery.Variants.FREQUENCY)
+            dfg_art_minus = self.original_dfg_art_minus or dfg_discovery.apply(self.log_minus_art,
+                                                                               variant=dfg_discovery.Variants.FREQUENCY)
+            self.original_dfg_art_minus = dfg_art_minus
             filtered_dfg_art = filter_dfg_knapsack(dfg_art, dfg_art_minus, self.weight)
             dfg_art = Counter(filtered_dfg_art)
 
@@ -212,7 +216,7 @@ class SubtreePlain:
                              self.counts,
                              self.recursion_depth + 1,
                              self.noise_threshold, sup, ratio, size_par, self.weight,
-                             parameters))
+                             parameters, original_dfg_art_minus=self.original_dfg_art_minus))
 
 
 def make_tree(log, log_minus, master_dfg, initial_dfg, initial_start_activities, initial_end_activities,
