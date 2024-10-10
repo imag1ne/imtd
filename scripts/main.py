@@ -15,19 +15,22 @@ def parse_args():
                                        dest='subcommand')
 
     im_parser = subparsers.add_parser('im', help='Inductive Miner')
+    im_parser.add_argument('-l', '--event-log', type=str, required=True)
     im_parser.add_argument('-p', '--desirable-log', type=str, required=True)
     im_parser.add_argument('-m', '--undesirable-log', type=str, required=False)
     im_parser.add_argument('-t', '--noise-threshold', type=float, required=False)
     im_parser.add_argument('-o', '--output', type=str, default='output')
 
-    im_parser = subparsers.add_parser('imfbi', help='Inductive Miner fbi')
-    im_parser.add_argument('-p', '--desirable-log', type=str, required=True)
-    im_parser.add_argument('-m', '--undesirable-log', type=str, required=False)
-    im_parser.add_argument('-w', '--weight', type=float, required=False)
-    im_parser.add_argument('-t', '--noise-threshold', type=float, required=False)
-    im_parser.add_argument('-o', '--output', type=str, default='output')
+    imfbi_parser = subparsers.add_parser('imfbi', help='Inductive Miner fbi')
+    imfbi_parser.add_argument('-l', '--event-log', type=str, required=True)
+    imfbi_parser.add_argument('-p', '--desirable-log', type=str, required=True)
+    imfbi_parser.add_argument('-m', '--undesirable-log', type=str, required=False)
+    imfbi_parser.add_argument('-w', '--weight', type=float, required=False)
+    imfbi_parser.add_argument('-t', '--noise-threshold', type=float, required=False)
+    imfbi_parser.add_argument('-o', '--output', type=str, default='output')
 
     imbi_parser = subparsers.add_parser('imbi', help='Inductive Miner bi')
+    imbi_parser.add_argument('-l', '--event-log', type=str, required=True)
     imbi_parser.add_argument('-s', '--support', type=float, required=True)
     imbi_parser.add_argument('-r', '--ratio', type=float, required=True)
     imbi_parser.add_argument('-p', '--desirable-log', type=str, required=True)
@@ -36,6 +39,7 @@ def parse_args():
     imbi_parser.add_argument('-x', '--parallel', type=bool, default=False, action=argparse.BooleanOptionalAction)
 
     imtd_parser = subparsers.add_parser('imtd', help='Inductive Miner td')
+    imtd_parser.add_argument('-l', '--event-log', type=str, required=True)
     imtd_parser.add_argument('-s', '--support', type=float, required=True)
     imtd_parser.add_argument('-r', '--ratio', type=float, required=True)
     imtd_parser.add_argument('-w', '--weight', type=float, required=True)
@@ -56,12 +60,14 @@ def main():
     # load the event logs
     match args.subcommand:
         case 'im':
+            log = pm4py.read_xes(args.event_log, return_legacy_log_object=True)
             log_p = pm4py.read_xes(args.desirable_log, return_legacy_log_object=True)
             if args.undesirable_log:
                 log_m = pm4py.read_xes(args.undesirable_log, return_legacy_log_object=True)
             else:
                 log_m = log_p
         case _:
+            log = pm4py.read_xes(args.event_log, return_legacy_log_object=True)
             log_p = pm4py.read_xes(args.desirable_log, return_legacy_log_object=True)
             log_m = pm4py.read_xes(args.undesirable_log, return_legacy_log_object=True)
 
@@ -74,14 +80,15 @@ def main():
     match args.subcommand:
         case 'im':
             noise_threshold = args.noise_threshold or 0.0
-            net, initial_marking, final_marking = pm4py.discover_petri_net_inductive(log_p,
+            net, initial_marking, final_marking = pm4py.discover_petri_net_inductive(log,
                                                                                      noise_threshold=noise_threshold,
                                                                                      multi_processing=True)
         case 'imfbi':
             weight = args.weight or 0.0
             noise_threshold = args.noise_threshold or 0.0
-            net, initial_marking, final_marking = discover_petri_net_inductive(log_p, log_m, weight=weight,
-                                                                               noise_threshold=noise_threshold)
+            net, initial_marking, final_marking = discover_petri_net_inductive(log, log_m, filter_ratio=weight,
+                                                                               noise_threshold=noise_threshold,
+                                                                               multi_processing=True)
         case 'imbi':
             net, initial_marking, final_marking = discover_petri_net_inductive_bi(
                 log_p,
@@ -93,12 +100,12 @@ def main():
         case 'imtd':
             similarity_matrix = np.genfromtxt(args.similarity_matrix, delimiter=',')
             net, initial_marking, final_marking = discover_petri_net_inductive_td(
-                log_p,
+                log,
                 log_m,
                 similarity_matrix,
                 sup=args.support,
                 ratio=args.ratio,
-                size_par=len(log_p) / len(log_m),
+                size_par=len(log) / len(log_m),
                 weight=args.weight)
 
     end = time.time()

@@ -116,7 +116,8 @@ def main():
                     "Inductive Miner fbi (threshold={}, weight={})".format(noise_threshold, weight))
                 petri_net, initial_marking, final_marking = discover_petri_net_inductive(log,
                                                                                          log_m,
-                                                                                         weight, noise_threshold)
+                                                                                         weight, noise_threshold,
+                                                                                         multi_processing=True)
                 suffix = 't{}_w{}'.format(noise_threshold, weight)
                 # save the petri net
                 model_filename = 'imfbi_petri_{}'.format(suffix)
