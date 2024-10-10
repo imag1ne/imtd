@@ -28,7 +28,7 @@ def parse_args():
 def main():
     args = parse_args()
     variants = args.variants
-    event_log = args.event_log
+    event_log = str(args.event_log)
     desirable_log = str(args.desirable_log)
     undesirable_log = str(args.undesirable_log)
     similarity_matrix = args.similarity_matrix
