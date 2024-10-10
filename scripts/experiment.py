@@ -16,6 +16,7 @@ def parse_args():
     parser.add_argument('-s', '--support', type=str, required=False)
     parser.add_argument('-r', '--ratio', type=str, required=False)
     parser.add_argument('-w', '--weight', type=str, required=False)
+    parser.add_argument('-l', '--event-log', type=Path, required=True)
     parser.add_argument('-p', '--desirable-log', type=Path, required=True)
     parser.add_argument('-m', '--undesirable-log', type=Path, required=False)
     parser.add_argument('-d', '--similarity-matrix', type=Path, required=False)
@@ -27,6 +28,7 @@ def parse_args():
 def main():
     args = parse_args()
     variants = args.variants
+    event_log = args.event_log
     desirable_log = str(args.desirable_log)
     undesirable_log = str(args.undesirable_log)
     similarity_matrix = args.similarity_matrix
@@ -35,6 +37,7 @@ def main():
     Path(output).mkdir(parents=True, exist_ok=True)
 
     # load the event logs
+    log = pm4py.read_xes(event_log, return_legacy_log_object=True)
     log_p = pm4py.read_xes(desirable_log, return_legacy_log_object=True)
     if undesirable_log:
         log_m = pm4py.read_xes(undesirable_log, return_legacy_log_object=True)
@@ -46,7 +49,7 @@ def main():
         nt_process = tqdm(parse_to_float_list(args.noise_threshold), desc='Inductive Miner')
         for noise_threshold in nt_process:
             nt_process.set_description("Inductive Miner (noise_threshold={})".format(noise_threshold))
-            petri_net, initial_marking, final_marking = pm4py.discover_petri_net_inductive(log_p,
+            petri_net, initial_marking, final_marking = pm4py.discover_petri_net_inductive(log,
                                                                                            noise_threshold=noise_threshold,
                                                                                            multi_processing=True)
             suffix = 't{}'.format(noise_threshold)
@@ -90,12 +93,12 @@ def main():
                         support_process.set_description(
                             "Inductive Miner td (support={}, ratio={}, weight={})".format(support, ratio, weight))
                         petri_net, initial_marking, final_marking = discover_petri_net_inductive_td(
-                            log_p,
+                            log,
                             log_m,
                             similarity_matrix,
                             sup=support,
                             ratio=ratio,
-                            size_par=len(log_p) / len(log_m),
+                            size_par=len(log) / len(log_m),
                             weight=weight)
                         suffix = 's{}_r{}_w{}'.format(support, ratio, weight)
                         # save the petri net
@@ -111,12 +114,12 @@ def main():
             for weight in weight_process:
                 nt_process.set_description(
                     "Inductive Miner fbi (threshold={}, weight={})".format(noise_threshold, weight))
-                petri_net, initial_marking, final_marking = discover_petri_net_inductive(log_p,
+                petri_net, initial_marking, final_marking = discover_petri_net_inductive(log,
                                                                                          log_m,
                                                                                          weight, noise_threshold)
                 suffix = 't{}_w{}'.format(noise_threshold, weight)
                 # save the petri net
-                model_filename = 'imf_petri_{}'.format(suffix)
+                model_filename = 'imfbi_petri_{}'.format(suffix)
                 save_petri_net(petri_net, initial_marking, final_marking, output, model_filename)
                 mes = Optimzation_Goals.apply_petri(log_p, log_m, petri_net, initial_marking, final_marking)
                 save_measurements(mes, output, model_filename)
