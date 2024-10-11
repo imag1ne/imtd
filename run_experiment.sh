@@ -26,7 +26,7 @@ case $dataset in
     "BPIC_2017")
         dataset_path="../Dataset/BPIC_2017";;
     *)
-        echo "\U274C Invalid dataset selection. Use 'Sepsis_Cases' or 'BPIC_2017'."
+        echo -e "\U274C Invalid dataset selection '${dataset}'. Use 'Sepsis_Cases' or 'BPIC_2017'."
         exit 1;;
 esac
 
@@ -43,7 +43,7 @@ case $event_log_type in
         desirable_event_log_suffix="desirable_event_log_sample_${sample_amount}.xes"
         undesirable_event_log_suffix="undesirable_event_log_sample_${sample_amount}.xes";;
     *)
-        echo "\U274C Invalid event log type selection. Use 'complete' or 'sampled'."
+        echo -e "\U274C Invalid event log type selection '${event_log_type}'. Use 'complete' or 'sampled'."
         exit 1;;
 esac
 
@@ -79,15 +79,15 @@ case $variant in
             experiment_command+=" -f $filter_ratio"
         fi;;
     *)
-        echo "\U274C Invalid variant selection. Use 'f', 'b', 't', or 'k'."
+        echo -e "\U274C Invalid variant selection '${variant}'. Use 'f', 'b', 't', or 'k'."
         exit 1;;
 esac
 
 # Run the experiment
-echo "\U2699 Running experiment with command: $experiment_command"
+echo -e "\U2699 Running experiment with command: $experiment_command"
 $experiment_command
 
 # Run the plot command
 plot_command="poetry run plot -d $output_dir"
-echo "\U2699 Running plot with command: $plot_command"
+echo  -e "\U2699 Running plot with command: $plot_command"
 $plot_command
