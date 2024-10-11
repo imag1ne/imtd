@@ -3,7 +3,6 @@ import csv
 import pm4py
 import numpy as np
 from pathlib import Path
-from tqdm import tqdm
 
 from imtd import discover_petri_net_inductive, discover_petri_net_inductive_bi, discover_petri_net_inductive_td, \
     Optimzation_Goals
@@ -15,7 +14,7 @@ def parse_args():
     parser.add_argument('-t', '--noise-threshold', type=str, required=False, default=None)
     parser.add_argument('-s', '--support', type=str, required=False)
     parser.add_argument('-r', '--ratio', type=str, required=False)
-    parser.add_argument('-w', '--weight', type=str, required=False)
+    parser.add_argument('-f', '--filter-ratio', type=str, required=False)
     parser.add_argument('-l', '--event-log', type=Path, required=True)
     parser.add_argument('-p', '--desirable-log', type=Path, required=True)
     parser.add_argument('-m', '--undesirable-log', type=Path, required=False)
@@ -34,7 +33,7 @@ def main():
     similarity_matrix = args.similarity_matrix
     output = args.output
 
-    Path(output).mkdir(parents=True, exist_ok=True)
+    output.mkdir(parents=True, exist_ok=True)
 
     # load the event logs
     log = pm4py.read_xes(event_log, return_legacy_log_object=True)
@@ -46,9 +45,9 @@ def main():
 
     print("Discovering petri nets...")
     if 'f' in variants:
-        nt_process = tqdm(parse_to_float_list(args.noise_threshold), desc='Inductive Miner')
-        for noise_threshold in nt_process:
-            nt_process.set_description("Inductive Miner (noise_threshold={})".format(noise_threshold))
+        noise_thresholds = parse_to_float_list(args.noise_threshold)
+        for noise_threshold in noise_thresholds:
+            print("Inductive Miner (noise_threshold={})".format(noise_threshold))
             petri_net, initial_marking, final_marking = pm4py.discover_petri_net_inductive(log,
                                                                                            noise_threshold=noise_threshold,
                                                                                            multi_processing=True)
@@ -60,11 +59,11 @@ def main():
             save_measurements(mes, output, model_filename)
 
     if 'b' in variants:
-        support_process = tqdm(parse_to_float_list(args.support), desc='Inductive Miner bi')
-        ratio_process = tqdm(parse_to_float_list(args.ratio))
-        for support in support_process:
-            for ratio in ratio_process:
-                support_process.set_description("Inductive Miner bi (support={}, ratio={})".format(support, ratio))
+        supports = parse_to_float_list(args.support)
+        ratios = parse_to_float_list(args.ratio)
+        for support in supports:
+            for ratio in ratios:
+                print("Inductive Miner bi (support={}, ratio={})".format(support, ratio))
                 petri_net, initial_marking, final_marking = discover_petri_net_inductive_bi(
                     log_p,
                     log_m,
@@ -84,14 +83,14 @@ def main():
             print("Similarity matrix is required for Inductive Miner td.")
         else:
             similarity_matrix = np.genfromtxt(similarity_matrix, delimiter=',')
-            support_process = tqdm(parse_to_float_list(args.support), desc='Inductive Miner td')
-            ratio_process = tqdm(parse_to_float_list(args.ratio))
-            weight_process = tqdm(parse_to_float_list(args.weight))
-            for support in support_process:
-                for ratio in ratio_process:
-                    for weight in weight_process:
-                        support_process.set_description(
-                            "Inductive Miner td (support={}, ratio={}, weight={})".format(support, ratio, weight))
+            supports = parse_to_float_list(args.support)
+            ratios = parse_to_float_list(args.ratio)
+            filter_ratios = parse_to_float_list(args.filter_ratio)
+            for support in supports:
+                for ratio in ratios:
+                    for filter_ratio in filter_ratios:
+                        print("Inductive Miner td (support={}, ratio={}, filter_ratio={})".format(support, ratio,
+                                                                                                  filter_ratio))
                         petri_net, initial_marking, final_marking = discover_petri_net_inductive_td(
                             log,
                             log_m,
@@ -99,8 +98,8 @@ def main():
                             sup=support,
                             ratio=ratio,
                             size_par=len(log) / len(log_m),
-                            weight=weight)
-                        suffix = 's{}_r{}_w{}'.format(support, ratio, weight)
+                            weight=filter_ratio)
+                        suffix = 's{}_r{}_f{}'.format(support, ratio, filter_ratio)
                         # save the petri net
                         model_filename = 'imtd_petri_{}'.format(suffix)
                         save_petri_net(petri_net, initial_marking, final_marking, output, model_filename)
@@ -108,17 +107,16 @@ def main():
                         save_measurements(mes, output, model_filename)
 
     if 'k' in variants:
-        weight_process = tqdm(parse_to_float_list(args.weight), desc='Inductive Miner fbi')
-        nt_process = tqdm(parse_to_float_list(args.noise_threshold), desc='Inductive Miner fbi')
-        for noise_threshold in nt_process:
-            for weight in weight_process:
-                nt_process.set_description(
-                    "Inductive Miner fbi (threshold={}, weight={})".format(noise_threshold, weight))
+        filter_ratios = parse_to_float_list(args.filter_ratio)
+        noise_thresholds = parse_to_float_list(args.noise_threshold)
+        for noise_threshold in noise_thresholds:
+            for filter_ratio in filter_ratios:
+                print("Inductive Miner fbi (threshold={}, filter_ratio={})".format(noise_threshold, filter_ratio))
                 petri_net, initial_marking, final_marking = discover_petri_net_inductive(log,
                                                                                          log_m,
-                                                                                         weight, noise_threshold,
+                                                                                         filter_ratio, noise_threshold,
                                                                                          multi_processing=True)
-                suffix = 't{}_w{}'.format(noise_threshold, weight)
+                suffix = 't{}_f{}'.format(noise_threshold, filter_ratio)
                 # save the petri net
                 model_filename = 'imfbi_petri_{}'.format(suffix)
                 save_petri_net(petri_net, initial_marking, final_marking, output, model_filename)
