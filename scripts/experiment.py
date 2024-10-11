@@ -119,8 +119,8 @@ def main():
         filter_ratios = parse_to_float_list(args.filter_ratio)
         noise_thresholds = parse_to_float_list(args.noise_threshold)
         n = len(filter_ratios) * len(noise_thresholds)
-        for i, noise_threshold in enumerate(noise_thresholds):
-            for j, filter_ratio in enumerate(filter_ratios):
+        for i, noise_threshold in enumerate(noise_thresholds, 1):
+            for j, filter_ratio in enumerate(filter_ratios, 1):
                 cur_n = (i - 1) * len(filter_ratios) + j
                 print("\U0001F9E9[{}/{}]Inductive Miner fbi (threshold={}, filter_ratio={})".format(cur_n, n,
                                                                                                     noise_threshold,
