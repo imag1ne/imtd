@@ -2,7 +2,7 @@
 
 # Usage: ./run_experiment.sh -v [variant] -t [threshold] -s [support] -r [ratio] -f [filter_ratio] -d [dataset] -e [event_log_type] -a [sample_amount] -o [output_dir]
 # Example: ./run_experiment.sh -v k -t 0.0 -d Sepsis_Cases -e complete -o output/sepsis_imfbi_t0.0
-#          ./run_experiment.sh -v k -t 0.0 -d BPIC_2017 -e sampled -a 2000 -o output/sepsis_imfbi_t0.0
+#          ./run_experiment.sh -v k -t 0.0 -d BPIC_2017 -e sampled -a 2000 -o output/bpic_2017_imfbi_t0.0
 
 while getopts v:t:s:r:f:d:e:a:o: flag
 do
