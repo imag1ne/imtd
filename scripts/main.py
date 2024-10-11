@@ -25,7 +25,7 @@ def parse_args():
     imfbi_parser.add_argument('-l', '--event-log', type=str, required=True)
     imfbi_parser.add_argument('-p', '--desirable-log', type=str, required=True)
     imfbi_parser.add_argument('-m', '--undesirable-log', type=str, required=False)
-    imfbi_parser.add_argument('-w', '--weight', type=float, required=False)
+    imfbi_parser.add_argument('-f', '--filter-ratio', type=float, required=False)
     imfbi_parser.add_argument('-t', '--noise-threshold', type=float, required=False)
     imfbi_parser.add_argument('-o', '--output', type=str, default='output')
 
@@ -42,7 +42,7 @@ def parse_args():
     imtd_parser.add_argument('-l', '--event-log', type=str, required=True)
     imtd_parser.add_argument('-s', '--support', type=float, required=True)
     imtd_parser.add_argument('-r', '--ratio', type=float, required=True)
-    imtd_parser.add_argument('-w', '--weight', type=float, required=True)
+    imtd_parser.add_argument('-f', '--filter-ratio', type=float, required=True)
     imtd_parser.add_argument('-p', '--desirable-log', type=str, required=True)
     imtd_parser.add_argument('-m', '--undesirable-log', type=str, required=True)
     imtd_parser.add_argument('-d', '--similarity-matrix', type=str, required=True)
@@ -54,21 +54,18 @@ def parse_args():
 def main():
     args = parse_args()
 
-    log_p = None
+    log = pm4py.read_xes(args.event_log, return_legacy_log_object=True)
+    log_p = pm4py.read_xes(args.desirable_log, return_legacy_log_object=True)
     log_m = None
 
     # load the event logs
     match args.subcommand:
         case 'im':
-            log = pm4py.read_xes(args.event_log, return_legacy_log_object=True)
-            log_p = pm4py.read_xes(args.desirable_log, return_legacy_log_object=True)
             if args.undesirable_log:
                 log_m = pm4py.read_xes(args.undesirable_log, return_legacy_log_object=True)
             else:
                 log_m = log_p
         case _:
-            log = pm4py.read_xes(args.event_log, return_legacy_log_object=True)
-            log_p = pm4py.read_xes(args.desirable_log, return_legacy_log_object=True)
             log_m = pm4py.read_xes(args.undesirable_log, return_legacy_log_object=True)
 
     # discover the petri net
@@ -76,6 +73,9 @@ def main():
     net = None
     initial_marking = None
     final_marking = None
+    pnml_file_name = ''
+    pnsvg_file_name = ''
+    mes_filename = ''
     start = time.time()
     match args.subcommand:
         case 'im':
@@ -83,12 +83,22 @@ def main():
             net, initial_marking, final_marking = pm4py.discover_petri_net_inductive(log,
                                                                                      noise_threshold=noise_threshold,
                                                                                      multi_processing=True)
+            suffix = 't{}'.format(noise_threshold)
+            pnml_file_name = 'imf_petri_{}'.format(suffix)
+            pnsvg_file_name = 'imf_petri_{}.svg'.format(suffix)
+            mes_filename = 'imf_petri_{}.csv'.format(suffix)
+
         case 'imfbi':
-            weight = args.weight or 0.0
+            filter_ratio = args.filter_ratio or 0.0
             noise_threshold = args.noise_threshold or 0.0
-            net, initial_marking, final_marking = discover_petri_net_inductive(log, log_m, filter_ratio=weight,
+            net, initial_marking, final_marking = discover_petri_net_inductive(log, log_m, filter_ratio=filter_ratio,
                                                                                noise_threshold=noise_threshold,
                                                                                multi_processing=True)
+            suffix = 't{}_r{}'.format(noise_threshold, filter_ratio)
+            pnml_file_name = 'imfbi_petri_{}'.format(suffix)
+            pnsvg_file_name = 'imfbi_petri_{}.svg'.format(suffix)
+            mes_filename = 'imfbi_petri_{}.csv'.format(suffix)
+
         case 'imbi':
             net, initial_marking, final_marking = discover_petri_net_inductive_bi(
                 log_p,
@@ -97,6 +107,11 @@ def main():
                 ratio=args.ratio,
                 size_par=len(log_p) / len(log_m),
                 parallel=args.parallel)
+            suffix = 's{}_r{}'.format(args.support, args.ratio)
+            pnml_file_name = 'imbi_petri_{}'.format(suffix)
+            pnsvg_file_name = 'imbi_petri_{}.svg'.format(suffix)
+            mes_filename = 'imbi_petri_{}.csv'.format(suffix)
+
         case 'imtd':
             similarity_matrix = np.genfromtxt(args.similarity_matrix, delimiter=',')
             net, initial_marking, final_marking = discover_petri_net_inductive_td(
@@ -106,44 +121,29 @@ def main():
                 sup=args.support,
                 ratio=args.ratio,
                 size_par=len(log) / len(log_m),
-                weight=args.weight)
+                weight=args.filter_ratio)
+            suffix = 's{}_r{}_f{}'.format(args.support, args.ratio, args.filter_ratio)
+            pnml_file_name = 'imtd_petri_{}'.format(suffix)
+            pnsvg_file_name = 'imtd_petri_{}.svg'.format(suffix)
+            mes_filename = 'imtd_petri_{}.csv'.format(suffix)
 
     end = time.time()
     elapsed_time = end - start
     elapsed_time_str = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
     print("Discover time: {} ({} s)".format(elapsed_time_str, elapsed_time))
 
-    output = args.output
-    Path(args.output).mkdir(parents=True, exist_ok=True)
-
-    pnml_file_name = None
-    pnsvg_file_name = None
-    mes_filename = None
-    match args.subcommand:
-        case 'im':
-            pnml_file_name = "/petri_im"
-            pnsvg_file_name = "/petri_im.svg"
-            mes_filename = "/mes_im.csv"
-        case 'imfbi':
-            pnml_file_name = "/petri_imfbi_t" + str(args.noise_threshold) + "_w" + str(args.weight)
-            pnsvg_file_name = "/petri_imfbi_t" + str(args.noise_threshold) + "_w" + str(args.weight) + ".svg"
-            mes_filename = "/mes_imfbi_t" + str(args.noise_threshold) + "_w" + str(args.weight) + ".csv"
-        case 'imbi':
-            pnml_file_name = "/petri_imbi_r" + str(args.ratio) + "_s" + str(args.support)
-            pnsvg_file_name = "/petri_imbi_r" + str(args.ratio) + "_s" + str(args.support) + ".svg"
-            mes_filename = "/mes_imbi_r" + str(args.ratio) + "_s" + str(args.support) + ".csv"
-        case 'imtd':
-            pnml_file_name = "/petri_imtd_r" + str(args.ratio) + "_s" + str(args.support) + "_w" + str(args.weight)
-            pnsvg_file_name = "/petri_imtd_r" + str(args.ratio) + "_s" + str(args.support) + "_w" + str(
-                args.weight) + ".svg"
-            mes_filename = "/mes_imtd_r" + str(args.ratio) + "_s" + str(args.support) + "_w" + str(args.weight) + ".csv"
+    output = Path(args.output)
+    output.mkdir(parents=True, exist_ok=True)
+    pnml_file_path = output.joinpath(pnml_file_name)
+    pnsvg_file_path = output.joinpath(pnsvg_file_name)
+    mes_file_path = output.joinpath(mes_filename)
 
     # save the petri net
     print("Saving the petri net...")
-    pm4py.write_pnml(net, initial_marking, final_marking, output + pnml_file_name)
+    pm4py.write_pnml(net, initial_marking, final_marking, str(pnml_file_path))
 
     # visualize the petri net
-    pm4py.vis.save_vis_petri_net(net, initial_marking, final_marking, output + pnsvg_file_name)
+    pm4py.vis.save_vis_petri_net(net, initial_marking, final_marking, str(pnsvg_file_path))
 
     mes = Optimzation_Goals.apply_petri(log_p, log_m, net, initial_marking, final_marking)
     result = [
@@ -159,7 +159,7 @@ def main():
         ('rec_ML', mes['rec_ML']),
         ('time', "{} ({} s)".format(elapsed_time_str, elapsed_time))
     ]
-    with open(output + mes_filename, mode='w', newline='') as file:
+    with open(mes_file_path, mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerows(result)
 
