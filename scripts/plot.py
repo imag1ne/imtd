@@ -17,64 +17,70 @@ def main():
     args = parse_args()
     data_path = args.data_path
     measurement_keys = {'acc', 'F1', 'precision', 'fitP', 'fitM', 'acc_perf', 'F1_perf', 'acc_ML', 'prc_ML', 'rec_ML'}
+
     imf_results = {key: [] for key in measurement_keys}
     imf_results['threshold'] = []
+
     imfbi_results = {key: [] for key in measurement_keys}
     imfbi_results['threshold'] = []
-    imfbi_results['weight'] = []
+    imfbi_results['filter_ratio'] = []
+
     imbi_results = {key: [] for key in measurement_keys}
     imbi_results['support'] = []
     imbi_results['ratio'] = []
+
     imtd_results = {key: [] for key in measurement_keys}
     imtd_results['support'] = []
     imtd_results['ratio'] = []
-    imtd_results['weight'] = []
-    for dirpath, dirnames, filenames in data_path.walk():
-        for filename in filenames:
-            filepath = dirpath.joinpath(filename)
-            parsed = parse_data_filename(filename)
-            if not parsed:
-                continue
+    imtd_results['filter_ratio'] = []
 
-            variant, params = parsed
-            match variant:
-                case 'imf':
-                    threshold = params[0]
-                    imf_results['threshold'].append(threshold)
-                    load_data_to_dict(filepath, imf_results, measurement_keys)
+    dirpath, _, filenames = next(data_path.walk())
+    dataset_name = dirpath.stem.split('_')[0]
+    for filename in filenames:
+        filepath = dirpath.joinpath(filename)
+        parsed = parse_data_filename(filename)
+        if not parsed:
+            continue
 
-                case 'imfbi':
-                    threshold = params[0]
-                    imfbi_results['threshold'].append(threshold)
-                    weight = params[1]
-                    imfbi_results['weight'].append(weight)
-                    load_data_to_dict(filepath, imfbi_results, measurement_keys)
+        variant, params = parsed
+        match variant:
+            case 'imf':
+                threshold = params[0]
+                imf_results['threshold'].append(threshold)
+                load_data_to_dict(filepath, imf_results, measurement_keys)
 
-                case 'imbi':
-                    support = params[0]
-                    imbi_results['support'].append(support)
-                    ratio = params[1]
-                    imbi_results['ratio'].append(ratio)
-                    load_data_to_dict(filepath, imbi_results, measurement_keys)
+            case 'imfbi':
+                threshold = params[0]
+                imfbi_results['threshold'].append(threshold)
+                filter_ratio = params[1]
+                imfbi_results['filter_ratio'].append(filter_ratio)
+                load_data_to_dict(filepath, imfbi_results, measurement_keys)
 
-                case 'imtd':
-                    support = params[0]
-                    imtd_results['support'].append(support)
-                    ratio = params[1]
-                    imtd_results['ratio'].append(ratio)
-                    weight = params[2]
-                    imtd_results['weight'].append(weight)
-                    load_data_to_dict(filepath, imtd_results, measurement_keys)
+            case 'imbi':
+                support = params[0]
+                imbi_results['support'].append(support)
+                ratio = params[1]
+                imbi_results['ratio'].append(ratio)
+                load_data_to_dict(filepath, imbi_results, measurement_keys)
+
+            case 'imtd':
+                support = params[0]
+                imtd_results['support'].append(support)
+                ratio = params[1]
+                imtd_results['ratio'].append(ratio)
+                filter_ratio = params[2]
+                imtd_results['filter_ratio'].append(filter_ratio)
+                load_data_to_dict(filepath, imtd_results, measurement_keys)
 
     imf_df = pd.DataFrame(imf_results)
     imfbi_df = pd.DataFrame(imfbi_results)
     imbi_df = pd.DataFrame(imbi_results)
     imtd_df = pd.DataFrame(imtd_results)
 
-    plot_imf_results(imf_df, data_path)
-    plot_imfbi_results(imfbi_df, data_path)
-    plot_imbi_results(imbi_df, data_path)
-    plot_imtd_results(imtd_df, data_path)
+    plot_imf_results(imf_df, dataset_name, data_path)
+    plot_imfbi_results(imfbi_df, dataset_name, data_path)
+    plot_imbi_results(imbi_df, dataset_name, data_path)
+    plot_imtd_results(imtd_df, dataset_name, data_path)
 
 
 def as_float(n: str) -> float:
@@ -106,14 +112,16 @@ def parse_data_filename(filename: str) -> tuple[str, list[float]] | None:
 
             threshold = float(filename_parts[2][1:4])
             return variant, [threshold]
+
         case 'imfbi':
             if len(filename_parts) < 4 or not filename_parts[2].startswith('t') or not filename_parts[3].startswith(
-                    'w'):
+                    'f'):
                 return None
 
             threshold = float(filename_parts[2][1:])
-            weight = float(filename_parts[3][1:].rstrip('.csv'))
-            return variant, [threshold, weight]
+            filter_ratio = float(filename_parts[3][1:].rstrip('.csv'))
+            return variant, [threshold, filter_ratio]
+
         case 'imbi':
             if len(filename_parts) < 4 or not filename_parts[2].startswith('s') or not filename_parts[3].startswith(
                     'r'):
@@ -122,21 +130,23 @@ def parse_data_filename(filename: str) -> tuple[str, list[float]] | None:
             support = float(filename_parts[2][1:])
             ratio = float(filename_parts[3][1:].rstrip('.csv'))
             return variant, [support, ratio]
+
         case 'imtd':
             if len(filename_parts) < 4 or not filename_parts[2].startswith('s') or not filename_parts[3].startswith(
-                    'r') or not filename_parts[4].startswith('w'):
+                    'r') or not filename_parts[4].startswith('f'):
                 return None
 
             support = float(filename_parts[2][1:])
             ratio = float(filename_parts[3][1:])
-            weight = float(filename_parts[4][1:].rstrip('.csv'))
-            return variant, [support, ratio, weight]
+            filter_ratio = float(filename_parts[4][1:].rstrip('.csv'))
+            return variant, [support, ratio, filter_ratio]
+
         case _:
             return None
 
 
 def plot_results(df, title, xlabel, xkey, savepath):
-    if len(df[xkey]) == 0:
+    if len(df[xkey]) <= 1:
         return
 
     df = df.sort_values(by=xkey)
@@ -155,51 +165,44 @@ def plot_results(df, title, xlabel, xkey, savepath):
     plt.clf()
 
 
-def plot_imf_results(imf_df, savepath: Path):
-    plot_results(imf_df, 'IMF-BPIC17', 'f', 'threshold', savepath.joinpath('imf_fig.png'))
+def plot_nested_group_results(df, group_names, title, savepath):
+    file_prefix = savepath.stem
+    savepath = savepath.parent
+
+    for xlabel, xlabel_short in group_names:
+        xkey = xlabel
+        g_names = [group_name for group_name, _ in group_names if group_name != xlabel]
+        g_short_names = [group_name_short for _, group_name_short in group_names if group_name_short != xlabel_short]
+        df_group = df.groupby(g_names)
+        for group_key, grouped_df in df_group:
+            params_info = ', '.join('{}={}'.format(g_names[i], group_key[i]) for i in range(len(group_key)))
+            title = '{} ({})'.format(title, params_info)
+            file_suffix = '_'.join(g_short_names[i] + str(group_key[i]) for i in range(len(group_key)))
+            filename = '{}_{}.png'.format(file_prefix, file_suffix)
+            plot_results(grouped_df, title, xlabel, xkey,
+                         savepath.joinpath(filename))
 
 
-def plot_imfbi_results(imfbi_df, savepath: Path):
-    imfbi_df_threshold_group = imfbi_df.groupby('threshold')
-    for threshold, df in imfbi_df_threshold_group:
-        plot_results(df, 'IMfbi-BPIC17 (threshold={})'.format(threshold), 'weight', 'weight',
-                     savepath.joinpath('imfbi_fig_t{}.png'.format(threshold)))
-
-    imfbi_df_weight_group = imfbi_df.groupby('weight')
-    for weight, df in imfbi_df_weight_group:
-        plot_results(df, 'IMfbi-BPIC17 (weight={})'.format(weight), 'threshold', 'threshold',
-                     savepath.joinpath('imfbi_fig_w{}.png'.format(weight)))
+def plot_imf_results(imf_df, dataset_name, savepath: Path):
+    title = 'IMf-{}'.format(dataset_name)
+    plot_results(imf_df, title, 'f', 'threshold', savepath.joinpath('imf_fig.png'))
 
 
-def plot_imbi_results(imbi_df, savepath: Path):
-    imbi_df_support_group = imbi_df.groupby('support')
-    for support, df in imbi_df_support_group:
-        plot_results(df, 'IMbi-BPIC17 (support={})'.format(support), 'ratio', 'ratio',
-                     savepath.joinpath('imbi_fig_s{}.png'.format(support)))
-
-    imbi_df_ratio_group = imbi_df.groupby('ratio')
-    for ratio, df in imbi_df_ratio_group:
-        plot_results(df, 'IMbi-BPIC17 (ratio={})'.format(ratio), 'support', 'support',
-                     savepath.joinpath('imbi_fig_r{}.png'.format(ratio)))
+def plot_imfbi_results(imfbi_df, dataset_name, savepath: Path):
+    title = 'IMfbi-{}'.format(dataset_name)
+    plot_nested_group_results(imfbi_df, [('threshold', 't'), ('filter_ratio', 'f')], title,
+                              savepath.joinpath('imfbi_fig'))
 
 
-def plot_imtd_results(imtd_df, savepath: Path):
-    # imtd_df_support_group = imtd_df.groupby('support')
-    # for support, df in imtd_df_support_group:
-    #     plot_results(df, 'IMtd-BPIC17 (support={})'.format(support), 'ratio', 'ratio',
-    #                  savepath.joinpath('imtd_fig_s{}.png'.format(support)))
-    #
-    # imtd_df_ratio_group = imtd_df.groupby('ratio')
-    # for ratio, df in imtd_df_ratio_group:
-    #     plot_results(df, 'IMtd-BPIC17 (ratio={})'.format(ratio), 'support', 'support',
-    #                  savepath.joinpath('imtd_fig_r{}.png'.format(ratio)))
+def plot_imbi_results(imbi_df, dataset_name, savepath: Path):
+    title = 'IMbi-{}'.format(dataset_name)
+    plot_nested_group_results(imbi_df, [('support', 's'), ('ratio', 'r')], title, savepath.joinpath('imbi_fig'))
 
-    imtd_df_support_group = imtd_df.groupby('support')
-    for support, df in imtd_df_support_group:
-        df_ratio_group = df.groupby('ratio')
-        for ratio, df in df_ratio_group:
-            plot_results(df, 'IMtd-BPIC17 (support={}, ratio={})'.format(support, ratio), 'weight', 'weight',
-                         savepath.joinpath('imtd_fig_s{}_r{}.png'.format(support, ratio)))
+
+def plot_imtd_results(imtd_df, dataset_name, savepath: Path):
+    title = 'IMtd-{}'.format(dataset_name)
+    plot_nested_group_results(imtd_df, [('support', 's'), ('ratio', 'r'), ('filter_ratio', 'f')], title,
+                              savepath.joinpath('imtd_fig'))
 
 
 if __name__ == "__main__":
