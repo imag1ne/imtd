@@ -87,7 +87,12 @@ esac
 echo -e "\U2699 Running experiment with command: $experiment_command"
 $experiment_command
 
-# Run the plot command
-plot_command="poetry run plot -d $output_dir"
-echo  -e "\U2699 Running plot with command: $plot_command"
-$plot_command
+# Check if the experiment was successful
+if [ $? -eq 0 ]; then
+    # Run the plot command
+    plot_command="poetry run plot -d $output_dir"
+    echo  -e "\U2699 Running plot with command: $plot_command"
+    $plot_command
+else
+    echo -e "\U274C Experiment failed. Skipping plot generation."
+fi

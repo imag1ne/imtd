@@ -43,12 +43,12 @@ def main():
     else:
         log_m = log_p
 
-    print("\U1F375Discovering and evaluating petri nets...")
+    print("\U0001F375Discovering and evaluating petri nets...")
     if 'f' in variants:
         noise_thresholds = parse_to_float_list(args.noise_threshold)
         n = len(noise_thresholds)
         for i, noise_threshold in enumerate(noise_thresholds, 1):
-            print("\U+1F9E9[{}/{}] Inductive Miner (noise_threshold={})".format(i, n, noise_threshold))
+            print("\U0001F9E9[{}/{}] Inductive Miner (noise_threshold={})".format(i, n, noise_threshold))
             petri_net, initial_marking, final_marking = pm4py.discover_petri_net_inductive(log,
                                                                                            noise_threshold=noise_threshold,
                                                                                            multi_processing=True)
@@ -66,7 +66,7 @@ def main():
         for i, support in enumerate(supports, 1):
             for j, ratio in enumerate(ratios, 1):
                 cur_n = (i - 1) * len(ratios) + j
-                print("\U+1F9E9[{}/{}]Inductive Miner bi (support={}, ratio={})".format(cur_n, n, support, ratio))
+                print("\U0001F9E9[{}/{}]Inductive Miner bi (support={}, ratio={})".format(cur_n, n, support, ratio))
                 petri_net, initial_marking, final_marking = discover_petri_net_inductive_bi(
                     log_p,
                     log_m,
@@ -95,10 +95,11 @@ def main():
                     for k, filter_ratio in enumerate(filter_ratios, 1):
                         cur_n = (i - 1) * len(ratios) * len(filter_ratios) + (j - 1) * len(filter_ratios) + k
                         print(
-                            "\U+1F9E9[{}/{}]Inductive Miner td (support={}, ratio={}, filter_ratio={})".format(cur_n, n,
-                                                                                                               support,
-                                                                                                               ratio,
-                                                                                                               filter_ratio))
+                            "\U0001F9E9[{}/{}]Inductive Miner td (support={}, ratio={}, filter_ratio={})".format(cur_n,
+                                                                                                                 n,
+                                                                                                                 support,
+                                                                                                                 ratio,
+                                                                                                                 filter_ratio))
                         petri_net, initial_marking, final_marking = discover_petri_net_inductive_td(
                             log,
                             log_m,
@@ -121,9 +122,9 @@ def main():
         for i, noise_threshold in enumerate(noise_thresholds):
             for j, filter_ratio in enumerate(filter_ratios):
                 cur_n = (i - 1) * len(filter_ratios) + j
-                print("\U+1F9E9[{}/{}]Inductive Miner fbi (threshold={}, filter_ratio={})".format(cur_n, n,
-                                                                                                  noise_threshold,
-                                                                                                  filter_ratio))
+                print("\U0001F9E9[{}/{}]Inductive Miner fbi (threshold={}, filter_ratio={})".format(cur_n, n,
+                                                                                                    noise_threshold,
+                                                                                                    filter_ratio))
                 petri_net, initial_marking, final_marking = discover_petri_net_inductive(log,
                                                                                          log_m,
                                                                                          filter_ratio, noise_threshold,
@@ -135,7 +136,7 @@ def main():
                 mes = Optimzation_Goals.apply_petri(log_p, log_m, petri_net, initial_marking, final_marking)
                 save_measurements(mes, output, model_filename)
 
-    print("\U+2705Completed discovering petri nets and evaluating the models.")
+    print("\U00002705Completed discovering petri nets and evaluating the models.")
 
 
 def parse_to_float_list(param: str | None) -> list[float]:
