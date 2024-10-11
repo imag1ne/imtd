@@ -83,37 +83,38 @@ def main():
 
     if 't' in variants:
         if similarity_matrix is None:
-            print("Similarity matrix is required for Inductive Miner td.")
+            similarity_matrix = np.zeros((len(log_p), len(log_m)))
         else:
             similarity_matrix = np.genfromtxt(similarity_matrix, delimiter=',')
-            supports = parse_to_float_list(args.support)
-            ratios = parse_to_float_list(args.ratio)
-            filter_ratios = parse_to_float_list(args.filter_ratio)
-            n = len(supports) * len(ratios) * len(filter_ratios)
-            for i, support in enumerate(supports, 1):
-                for j, ratio in enumerate(ratios, 1):
-                    for k, filter_ratio in enumerate(filter_ratios, 1):
-                        cur_n = (i - 1) * len(ratios) * len(filter_ratios) + (j - 1) * len(filter_ratios) + k
-                        print(
-                            "\U0001F9E9[{}/{}]Inductive Miner td (support={}, ratio={}, filter_ratio={})".format(cur_n,
-                                                                                                                 n,
-                                                                                                                 support,
-                                                                                                                 ratio,
-                                                                                                                 filter_ratio))
-                        petri_net, initial_marking, final_marking = discover_petri_net_inductive_td(
-                            log,
-                            log_m,
-                            similarity_matrix,
-                            sup=support,
-                            ratio=ratio,
-                            size_par=len(log) / len(log_m),
-                            weight=filter_ratio)
-                        suffix = 's{}_r{}_f{}'.format(support, ratio, filter_ratio)
-                        # save the petri net
-                        model_filename = 'imtd_petri_{}'.format(suffix)
-                        save_petri_net(petri_net, initial_marking, final_marking, output, model_filename)
-                        mes = Optimzation_Goals.apply_petri(log_p, log_m, petri_net, initial_marking, final_marking)
-                        save_measurements(mes, output, model_filename)
+        
+        supports = parse_to_float_list(args.support)
+        ratios = parse_to_float_list(args.ratio)
+        filter_ratios = parse_to_float_list(args.filter_ratio)
+        n = len(supports) * len(ratios) * len(filter_ratios)
+        for i, support in enumerate(supports, 1):
+            for j, ratio in enumerate(ratios, 1):
+                for k, filter_ratio in enumerate(filter_ratios, 1):
+                    cur_n = (i - 1) * len(ratios) * len(filter_ratios) + (j - 1) * len(filter_ratios) + k
+                    print(
+                        "\U0001F9E9[{}/{}]Inductive Miner td (support={}, ratio={}, filter_ratio={})".format(cur_n,
+                                                                                                             n,
+                                                                                                             support,
+                                                                                                             ratio,
+                                                                                                             filter_ratio))
+                    petri_net, initial_marking, final_marking = discover_petri_net_inductive_td(
+                        log,
+                        log_m,
+                        similarity_matrix,
+                        sup=support,
+                        ratio=ratio,
+                        size_par=len(log) / len(log_m),
+                        weight=filter_ratio)
+                    suffix = 's{}_r{}_f{}'.format(support, ratio, filter_ratio)
+                    # save the petri net
+                    model_filename = 'imtd_petri_{}'.format(suffix)
+                    save_petri_net(petri_net, initial_marking, final_marking, output, model_filename)
+                    mes = Optimzation_Goals.apply_petri(log_p, log_m, petri_net, initial_marking, final_marking)
+                    save_measurements(mes, output, model_filename)
 
     if 'k' in variants:
         filter_ratios = parse_to_float_list(args.filter_ratio)
