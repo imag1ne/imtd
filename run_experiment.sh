@@ -25,8 +25,10 @@ case $dataset in
         dataset_path="../Dataset/Sepsis_Cases";;
     "BPIC_2017")
         dataset_path="../Dataset/BPIC_2017";;
+    "CCC19")
+        dataset_path="../Dataset/CCC19";;
     *)
-        echo -e "\U274C Invalid dataset selection '${dataset}'. Use 'Sepsis_Cases' or 'BPIC_2017'."
+        echo -e "\U274C Invalid dataset selection '${dataset}'. Use 'Sepsis_Cases', 'CCC19' or 'BPIC_2017'."
         exit 1;;
 esac
 
