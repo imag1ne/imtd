@@ -175,11 +175,11 @@ def plot_nested_group_results(df, group_names, title, savepath):
         g_short_names = [group_name_short for _, group_name_short in group_names if group_name_short != xlabel_short]
         df_group = df.groupby(g_names)
         for group_key, grouped_df in df_group:
-            params_info = ', '.join('{}={}'.format(g_names[i], group_key[i]) for i in range(len(group_key)))
-            title = '{} ({})'.format(title, params_info)
+            params_info = ', '.join('{}={}'.format(n, v) for n, v in zip(g_names, group_key))
+            title_with_param_info = '{} ({})'.format(title, params_info)
             file_suffix = '_'.join(g_short_names[i] + str(group_key[i]) for i in range(len(group_key)))
             filename = '{}_{}.png'.format(file_prefix, file_suffix)
-            plot_results(grouped_df, title, xlabel, xkey,
+            plot_results(grouped_df, title_with_param_info, xlabel, xkey,
                          savepath.joinpath(filename))
 
 
