@@ -14,7 +14,7 @@ def main():
 
     for sample, size in zip(samples, sizes):
         desirable_event_log, undesirable_event_log = split_bpic_2017_event_log(sample)
-        pm4py.write_xes(sample, EVENT_LOG_PATH + "sample_" + str(size) + ".xes")
+        pm4py.write_xes(sample, EVENT_LOG_PATH + "event_log_sample_" + str(size) + ".xes")
         pm4py.write_xes(desirable_event_log, EVENT_LOG_PATH + "desirable_event_log_sample_" + str(size) + ".xes")
         pm4py.write_xes(undesirable_event_log, EVENT_LOG_PATH + "undesirable_event_log_sample_" + str(size) + ".xes")
 
