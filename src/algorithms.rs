@@ -1,6 +1,7 @@
 use crate::graph::py_graph::PyGraph;
 use petgraph::Direction;
 use pyo3::pyfunction;
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::{
     collections::{BTreeSet, HashSet},
@@ -164,7 +165,7 @@ pub fn filter_dfg<'a>(
         "Theta must be between 0 and 1"
     );
 
-    if dfg_minus.is_empty() {
+    if dfg_minus.is_empty() || theta == 0.0 {
         return dfg.clone();
     }
 
@@ -186,27 +187,27 @@ pub fn filter_dfg<'a>(
 
     // Prepare the list of edges that can be potentially removed
     let mut removable_edges = vec![];
-    let mut total_volume = 0;
+    let mut total_weight = 0;
     for (&edge, &weight) in &dfg {
         let (source, target) = edge;
         if max_outgoing_edges.contains_key(&edge) || source == "start" || target == "end" {
             continue;
         }
 
-        let volume = weight;
+        let wt = weight;
         let value = dfg_minus.get(&(source, target)).copied().unwrap_or(0);
-        let remove_edge = RemoveEdge::new(source, target, volume, value);
+        let remove_edge = RemovableEdge::new(source, target, wt, value);
         removable_edges.push(remove_edge);
-        total_volume += volume;
+        total_weight += wt;
     }
 
     // Edge case: If no edges can be removed
-    if removable_edges.is_empty() || total_volume == 0 {
+    if removable_edges.is_empty() || total_weight == 0 {
         return dfg.clone();
     }
 
     // Calculate the total capacity
-    let capacity = (total_volume as f64 * theta) as usize;
+    let capacity = (total_weight as f64 * theta) as usize;
 
     // Initialize DP table
     let n = removable_edges.len();
@@ -214,15 +215,30 @@ pub fn filter_dfg<'a>(
     // Build the DP table
     for i in 1..=n {
         let item = &removable_edges[i - 1];
-        let v = item.volume;
-        let w = item.value;
-        for c in 1..=capacity {
-            if item.volume > c {
-                dp[i][c] = dp[i - 1][c];
-            } else {
-                dp[i][c] = dp[i - 1][c].max(dp[i - 1][c - v] + w);
-            }
-        }
+        let weight = item.weight;
+        let value = item.value;
+        
+        let (dp_before_i, dp_from_i) = dp.split_at_mut(i);
+        let dp_prev = &dp_before_i[i - 1];
+        let dp_curr = &mut dp_from_i[0];
+
+        dp_curr
+            .par_iter_mut()
+            .enumerate()
+            .for_each(|(c, dp_curr_c)| {
+                if weight > c {
+                    *dp_curr_c = dp_prev[c];
+                } else {
+                    *dp_curr_c = dp_prev[c].max(dp_prev[c - weight] + value);
+                }
+            });
+        // for c in 1..=capacity {
+        //     if item.weight > c {
+        //         dp[i][c] = dp[i - 1][c];
+        //     } else {
+        //         dp[i][c] = dp[i - 1][c].max(dp[i - 1][c - weight] + value);
+        //     }
+        // }
     }
 
     // Find the selected edges
@@ -232,7 +248,7 @@ pub fn filter_dfg<'a>(
         if dp[i][c] != dp[i - 1][c] {
             let edge = &removable_edges[i - 1];
             edges_to_remove.insert(edge.edge());
-            c -= edge.volume;
+            c -= edge.weight;
         }
     }
 
@@ -246,19 +262,19 @@ pub fn filter_dfg<'a>(
 }
 
 #[derive(Debug)]
-struct RemoveEdge<'a> {
+struct RemovableEdge<'a> {
     source: &'a str,
     target: &'a str,
-    volume: usize,
+    weight: usize,
     value: usize,
 }
 
-impl<'a> RemoveEdge<'a> {
-    pub fn new(source: &'a str, target: &'a str, volume: usize, value: usize) -> Self {
+impl<'a> RemovableEdge<'a> {
+    pub fn new(source: &'a str, target: &'a str, weight: usize, value: usize) -> Self {
         Self {
             source,
             target,
-            volume,
+            weight,
             value,
         }
     }
