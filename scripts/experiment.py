@@ -49,7 +49,7 @@ def main():
         n = len(noise_thresholds)
         for i, noise_threshold in enumerate(noise_thresholds, 1):
             print("\U0001F9E9[{}/{}] Inductive Miner (noise_threshold={})".format(i, n, noise_threshold))
-            petri_net, initial_marking, final_marking = pm4py.discover_petri_net_inductive(log,
+            petri_net, initial_marking, final_marking = pm4py.discover_petri_net_inductive(log_p,
                                                                                            noise_threshold=noise_threshold,
                                                                                            multi_processing=True)
             suffix = 't{}'.format(noise_threshold)
@@ -86,7 +86,7 @@ def main():
             similarity_matrix = np.zeros((len(log_p), len(log_m)))
         else:
             similarity_matrix = np.genfromtxt(similarity_matrix, delimiter=',')
-        
+
         supports = parse_to_float_list(args.support)
         ratios = parse_to_float_list(args.ratio)
         filter_ratios = parse_to_float_list(args.filter_ratio)
@@ -102,12 +102,12 @@ def main():
                                                                                                              ratio,
                                                                                                              filter_ratio))
                     petri_net, initial_marking, final_marking = discover_petri_net_inductive_td(
-                        log,
+                        log_p,
                         log_m,
                         similarity_matrix,
                         sup=support,
                         ratio=ratio,
-                        size_par=len(log) / len(log_m),
+                        size_par=len(log_p) / len(log_m),
                         weight=filter_ratio)
                     suffix = 's{}_r{}_f{}'.format(support, ratio, filter_ratio)
                     # save the petri net
@@ -126,7 +126,7 @@ def main():
                 print("\U0001F9E9[{}/{}]Inductive Miner fbi (threshold={}, filter_ratio={})".format(cur_n, n,
                                                                                                     noise_threshold,
                                                                                                     filter_ratio))
-                petri_net, initial_marking, final_marking = discover_petri_net_inductive(log,
+                petri_net, initial_marking, final_marking = discover_petri_net_inductive(log_p,
                                                                                          log_m,
                                                                                          filter_ratio, noise_threshold,
                                                                                          multi_processing=True)
