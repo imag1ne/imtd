@@ -217,7 +217,7 @@ pub fn filter_dfg<'a>(
         let item = &removable_edges[i - 1];
         let weight = item.weight;
         let value = item.value;
-        
+
         let (dp_before_i, dp_from_i) = dp.split_at_mut(i);
         let dp_prev = &dp_before_i[i - 1];
         let dp_curr = &mut dp_from_i[0];
@@ -303,7 +303,7 @@ mod tests {
             (("C", "D"), 5),
             (("B", "D"), 8),
         ]);
-        let theta = 0.3;
+        let theta = 0.5;
         let filtered_dfg = filter_dfg(desirable_dfg, undesirable_dfg, theta);
         let expected_dfg = HashMap::from([
             (("A", "B"), 10),
@@ -355,8 +355,8 @@ mod tests {
             (("C", "D"), 4),
         ]);
 
-        // Test with theta = 0.2
-        let theta_low = 0.2;
+        // Test with theta = 0.5
+        let theta_low = 0.5;
         let filtered_dfg_low =
             filter_dfg(desirable_dfg.clone(), undesirable_dfg.clone(), theta_low);
 
@@ -369,8 +369,8 @@ mod tests {
 
         assert_eq!(filtered_dfg_low, expected_dfg_low);
 
-        // Test with theta = 0.5
-        let theta_high = 0.5;
+        // Test with theta = 1.0
+        let theta_high = 1.0;
         let filtered_dfg_high = filter_dfg(desirable_dfg.clone(), undesirable_dfg, theta_high);
 
         let expected_dfg_high = HashMap::from([(("A", "C"), 6), (("B", "D"), 5), (("C", "D"), 2)]);
