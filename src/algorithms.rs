@@ -161,49 +161,47 @@ pub fn filter_dfg<'a>(
     theta: f64,
 ) -> HashMap<(&'a str, &'a str), usize> {
     assert!(
-        theta >= 0.0 && theta <= 1.0,
+        (0.0..=1.0).contains(&theta),
         "Theta must be between 0 and 1"
     );
 
     if dfg_minus.is_empty() || theta == 0.0 {
-        return dfg.clone();
+        return dfg;
     }
 
     // Identify and keep the max outgoing edge for each node
-    let mut max_outgoing_edges = HashMap::new();
-    for (&(source, target), &weight) in &dfg {
-        let (max_target, max_outgoing_weight) =
-            max_outgoing_edges.entry(source).or_insert((target, weight));
-        if weight > *max_outgoing_weight {
-            *max_target = target;
-            *max_outgoing_weight = weight;
+    let mut max_outgoing_edge_weights = HashMap::new();
+    for (&(source, _), &weight) in &dfg {
+        let max_weight = max_outgoing_edge_weights.entry(source).or_insert(weight);
+        if weight > *max_weight {
+            *max_weight = weight;
         }
     }
 
-    let max_outgoing_edges = max_outgoing_edges
-        .into_iter()
-        .map(|(source, (target, weight))| ((source, target), weight))
-        .collect::<HashMap<_, _>>();
-
     // Prepare the list of edges that can be potentially removed
+    let intersection_dfg = dfg
+        .iter()
+        .filter(|(edge, _)| dfg_minus.contains_key(edge))
+        .map(|(edge, weight)| (*edge, *weight))
+        .collect::<HashMap<_, _>>();
     let mut removable_edges = vec![];
     let mut total_weight = 0;
-    for (&edge, &weight) in &dfg {
+    for (&edge, &weight) in &intersection_dfg {
         let (source, target) = edge;
-        if max_outgoing_edges.contains_key(&edge) || source == "start" || target == "end" {
+        let max_weight = max_outgoing_edge_weights[source];
+        if weight == max_weight || source == "start" || target == "end" {
             continue;
         }
 
-        let wt = weight;
-        let value = dfg_minus.get(&(source, target)).copied().unwrap_or(0);
-        let remove_edge = RemovableEdge::new(source, target, wt, value);
+        let value = dfg_minus[&(source, target)];
+        let remove_edge = RemovableEdge::new(source, target, weight, value);
         removable_edges.push(remove_edge);
-        total_weight += wt;
+        total_weight += weight;
     }
 
     // Edge case: If no edges can be removed
     if removable_edges.is_empty() || total_weight == 0 {
-        return dfg.clone();
+        return dfg;
     }
 
     // Calculate the total capacity
@@ -253,12 +251,9 @@ pub fn filter_dfg<'a>(
     }
 
     // Remove selected edges from the desirable DFG
-    let filtered_dfg = dfg
-        .into_iter()
+    dfg.into_iter()
         .filter(|(edge, _)| !edges_to_remove.contains(edge))
-        .collect();
-
-    filtered_dfg
+        .collect()
 }
 
 #[derive(Debug)]
@@ -332,6 +327,17 @@ mod tests {
         let theta = 1.0;
         let filtered_dfg = filter_dfg(desirable_dfg, undesirable_dfg, theta);
         let expected_dfg = HashMap::from([(("A", "C"), 3), (("B", "C"), 1)]);
+
+        assert_eq!(filtered_dfg, expected_dfg);
+    }
+
+    #[test]
+    fn test_filter_dfg_only_filter_the_edges_in_dfg_minus() {
+        let desirable_dfg = HashMap::from([(("A", "B"), 10), (("A", "C"), 9), (("A", "D"), 1)]);
+        let undesirable_dfg = HashMap::from([(("A", "E"), 5)]);
+        let theta = 0.4;
+        let filtered_dfg = filter_dfg(desirable_dfg, undesirable_dfg, theta);
+        let expected_dfg = HashMap::from([(("A", "B"), 10), (("A", "C"), 9), (("A", "D"), 1)]);
 
         assert_eq!(filtered_dfg, expected_dfg);
     }
