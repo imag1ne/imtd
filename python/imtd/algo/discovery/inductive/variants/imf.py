@@ -63,13 +63,13 @@ class IMFUVCL(IMF[IMDataStructureUVCL]):
 
         tree = self.apply_base_cases(obj, parameters)
         if tree is None:
-            filtered_dd = self.__filter_dfg_undesirable(obj, original_undesirable_dfg, filter_ratio)
-            cut = self.find_cut(filtered_dd, parameters)
+            cut = self.find_cut(obj, parameters)
             if cut is not None:
                 tree = self._recurse(cut[0], cut[1], parameters=parameters)
             if tree is None:
                 if not second_iteration:
-                    filtered_ds = self.__filter_dfg_noise(filtered_dd, noise_threshold)
+                    filtered_ds = self.__filter_dfg_noise(obj, noise_threshold)
+                    filtered_ds = self.__filter_dfg_undesirable(filtered_ds, original_undesirable_dfg, filter_ratio)
                     tree = self.apply(filtered_ds, parameters=parameters, second_iteration=True)
                     if tree is None:
                         ft = self.fall_through(obj, parameters)
