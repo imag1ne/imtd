@@ -638,7 +638,7 @@ fn cost_seq_minus(
 fn cost_exc(graph: &PyGraph, part_a: &HashSet<&str>, part_b: &HashSet<&str>, sup: f64) -> f64 {
     let cost_1 = edge_boundary_directed_num(graph, part_a, part_b);
     let cost_2 = edge_boundary_directed_num(graph, part_b, part_a);
-    (1.0 - sup) * cost_1 + cost_2
+    (1.0 - sup) * (cost_1 + cost_2)
 }
 
 fn cost_exc_minus(
