@@ -212,7 +212,7 @@ pub fn evaluate_cuts<'a>(
                             &edge_case_id_map_m,
                             &similarity_matrix,
                         )
-                        .unwrap_or(0.0);
+                            .unwrap_or(0.0);
 
                         let loop_evaluation = (
                             (part_a.clone(), part_b.clone()),
@@ -509,49 +509,56 @@ fn cost_seq(
     // deviating edges
     let cost_1 = edge_boundary_directed_num(graph, part_b, part_a);
 
+    let mut total_flow = 0.0;
+    let mut flow_count = 0;
+    for &node_a in part_a {
+        for &node_b in part_b {
+            if let Some(flow_value) = flow.get(&(node_a, node_b)) {
+                total_flow += flow_value;
+                flow_count += 1;
+            }
+        }
+    }
+    let avg_flow = total_flow / flow_count as f64;
+
     let mut cost_2 = 0.0;
     let part_a_out_degree = graph.nodes_out_degree(part_a);
     let part_b_out_degree = graph.nodes_out_degree(part_b);
-    let part_a_and_part_b_out_degree = part_a_out_degree + part_b_out_degree;
+    let part_a_and_part_b_out_degree = part_a_out_degree * part_b_out_degree;
     for &node_a in part_a {
         for &node_b in part_b {
-            let cost = f64::max(
-                0.0,
-                scores.get(&(node_a, node_b)).unwrap_or(&1.0)
-                    * graph.out_degree(node_a)
-                    * sup
-                    * (graph.out_degree(node_b) / part_a_and_part_b_out_degree)
-                    - flow[&(node_a, node_b)],
-            );
+            let expected = avg_flow * graph.out_degree(node_a) * graph.out_degree(node_b)
+                / part_a_and_part_b_out_degree;
+            let cost = f64::max(0.0, expected - flow[&(node_a, node_b)]);
             cost_2 += cost;
         }
     }
 
-    let mut cost_3 = 0.0;
-    let part_a_with_start = part_a | &HashSet::from(["start"]);
-    let part_b_with_end = part_b | &HashSet::from(["end"]);
-    let part_a_with_start_to_part_b_with_end_num =
-        edge_boundary_directed_num(graph, &part_a_with_start, &part_b_with_end);
-    for &end_node in end_set {
-        for &start_node in start_set {
-            let num_end_node_to_part_b_with_end =
-                node_to_nodes_num(graph, end_node, &part_b_with_end);
-            let num_part_a_with_start_to_start_node =
-                nodes_to_node_num(graph, &part_a_with_start, start_node);
-            let cost = f64::max(
-                0.0,
-                scores.get(&(end_node, start_node)).unwrap_or(&1.0)
-                    * num_end_node_to_part_b_with_end
-                    * sup
-                    * num_part_a_with_start_to_start_node
-                    / part_a_with_start_to_part_b_with_end_num
-                    - node_to_node_num(graph, end_node, start_node),
-            );
-            cost_3 += cost;
-        }
-    }
+    // let mut cost_3 = 0.0;
+    // let part_a_with_start = part_a | &HashSet::from(["start"]);
+    // let part_b_with_end = part_b | &HashSet::from(["end"]);
+    // let part_a_with_start_to_part_b_with_end_num =
+    //     edge_boundary_directed_num(graph, &part_a_with_start, &part_b_with_end);
+    // for &end_node in end_set {
+    //     for &start_node in start_set {
+    //         let num_end_node_to_part_b_with_end =
+    //             node_to_nodes_num(graph, end_node, &part_b_with_end);
+    //         let num_part_a_with_start_to_start_node =
+    //             nodes_to_node_num(graph, &part_a_with_start, start_node);
+    //         let cost = f64::max(
+    //             0.0,
+    //             scores.get(&(end_node, start_node)).unwrap_or(&1.0)
+    //                 * num_end_node_to_part_b_with_end
+    //                 * sup
+    //                 * num_part_a_with_start_to_start_node
+    //                 / part_a_with_start_to_part_b_with_end_num
+    //                 - node_to_node_num(graph, end_node, start_node),
+    //         );
+    //         cost_3 += cost;
+    //     }
+    // }
 
-    cost_1 + cost_2 + cost_3
+    cost_1 + sup * cost_2
 }
 
 fn cost_seq_minus(
@@ -676,18 +683,35 @@ fn cost_par(graph: &PyGraph, part_a: &HashSet<&str>, part_b: &HashSet<&str>, sup
     let mut cost_1 = 0.0;
     let mut cost_2 = 0.0;
 
+    let (edges_count_a_to_b, total_weight_a_to_b) = edge_boundary_directed(graph, part_a, part_b)
+        .fold((0.0, 0.0), |(count, weights), edge| {
+            (count + 1.0, weights + edge.weight())
+        });
+    let (edges_count_b_to_a, total_weight_b_to_a) = edge_boundary_directed(graph, part_b, part_a)
+        .fold((0.0, 0.0), |(count, weights), edge| {
+            (count + 1.0, weights + edge.weight())
+        });
+    let avg_weight_a_to_b = total_weight_a_to_b / edges_count_a_to_b;
+    let avg_weight_b_to_a = total_weight_b_to_a / edges_count_b_to_a;
+
     let part_a_out_degree = graph.nodes_out_degree(part_a);
     let part_b_out_degree = graph.nodes_out_degree(part_b);
     for &node_a in part_a {
         for &node_b in part_b {
-            let c = sup * graph.out_degree(node_a) * graph.out_degree(node_b)
-                / (part_a_out_degree + part_b_out_degree);
-            cost_1 += f64::max(0.0, c - node_to_node_num(graph, node_a, node_b));
-            cost_2 += f64::max(0.0, c - node_to_node_num(graph, node_b, node_a));
+            let expected = sup * graph.out_degree(node_a) * graph.out_degree(node_b)
+                / (part_a_out_degree * part_b_out_degree);
+            cost_1 += f64::max(
+                0.0,
+                expected * avg_weight_a_to_b - node_to_node_num(graph, node_a, node_b),
+            );
+            cost_2 += f64::max(
+                0.0,
+                expected * avg_weight_b_to_a - node_to_node_num(graph, node_b, node_a),
+            );
         }
     }
 
-    cost_1 + cost_2
+    sup * (cost_1 + cost_2)
 }
 
 fn cost_loop(
@@ -717,6 +741,21 @@ fn cost_loop(
         end_part_a_to_input_part_b_num,
     );
 
+    let (edges_count, total_weight) = edge_boundary_directed(graph, output_part_b, start_part_a)
+        .fold((0.0, 0.0), |(count, weights), edge| {
+            (count + 1.0, weights + edge.weight())
+        });
+    let avg_weight_output_part_b_to_start_part_a = total_weight / edges_count;
+    let (edges_count, total_weight) = edge_boundary_directed(graph, end_part_a, input_part_b)
+        .fold((0.0, 0.0), |(count, weights), edge| {
+            (count + 1.0, weights + edge.weight())
+        });
+    let avg_weight_end_part_a_to_input_part_b = total_weight / edges_count;
+    let max_avg_weight = f64::max(
+        avg_weight_output_part_b_to_start_part_a,
+        avg_weight_end_part_a_to_input_part_b,
+    );
+
     let cost_1 =
         node_to_nodes_num(graph, "start", part_b) + nodes_to_node_num(graph, part_b, "end");
     let cost_2 = edge_boundary_directed_num(graph, &(part_a - end_part_a), part_b);
@@ -726,15 +765,16 @@ fn cost_loop(
     let start_to_start_part_a_num = node_to_nodes_num(graph, "start", start_part_a);
     let output_part_b_to_start_part_a_num =
         edge_boundary_directed_num(graph, output_part_b, start_part_a);
+    let start_part_a_out_degree = graph.nodes_out_degree(start_part_a);
+    let output_part_b_out_degree = graph.nodes_out_degree(output_part_b);
+    let start_part_a_and_output_part_b_out_degree =
+        start_part_a_out_degree * output_part_b_out_degree;
     if !output_part_b.is_empty() {
         for &node_a in start_part_a {
             for &node_b in output_part_b {
-                let c = m_p
-                    * sup
-                    * (node_to_node_num(graph, "start", node_a) / start_to_start_part_a_num)
-                    * (node_to_nodes_num(graph, node_b, start_part_a)
-                        / output_part_b_to_start_part_a_num);
-                cost_4 += f64::max(0.0, c - node_to_node_num(graph, node_b, node_a));
+                let expected = max_avg_weight * graph.out_degree(node_a) * graph.out_degree(node_b)
+                    / start_part_a_and_output_part_b_out_degree;
+                cost_4 += f64::max(0.0, expected - node_to_node_num(graph, node_b, node_a));
             }
         }
     }
@@ -743,15 +783,15 @@ fn cost_loop(
     let end_part_a_to_end_num = nodes_to_node_num(graph, end_part_a, "end");
     let end_part_a_to_input_part_b_num =
         edge_boundary_directed_num(graph, end_part_a, input_part_b);
+    let end_part_a_out_degree = graph.nodes_out_degree(end_part_a);
+    let input_part_b_out_degree = graph.nodes_out_degree(input_part_b);
+    let end_part_a_and_input_part_b_out_degree = end_part_a_out_degree * input_part_b_out_degree;
     if !input_part_b.is_empty() {
         for &node_a in end_part_a {
             for &node_b in input_part_b {
-                let c = m_p
-                    * sup
-                    * (node_to_node_num(graph, node_a, "end") / end_part_a_to_end_num)
-                    * (nodes_to_node_num(graph, end_part_a, node_b)
-                        / end_part_a_to_input_part_b_num);
-                cost_5 += f64::max(0.0, c - node_to_node_num(graph, node_a, node_b));
+                let expected = max_avg_weight * graph.out_degree(node_a) * graph.out_degree(node_b)
+                    / end_part_a_and_input_part_b_out_degree;
+                cost_5 += f64::max(0.0, expected - node_to_node_num(graph, node_a, node_b));
             }
         }
     }
@@ -764,7 +804,7 @@ fn cost_loop(
         return None;
     }
 
-    Some(cost_1 + cost_2 + cost_3 + cost_4 + cost_5)
+    Some(cost_1 + cost_2 + cost_3 + sup * (cost_4 + cost_5))
 }
 
 fn cost_loop_minus(
@@ -855,7 +895,7 @@ fn cost_loop_minus(
                     * sup
                     * (node_to_node_num(graph, "start", node_a) / start_to_start_part_a_num)
                     * (node_to_nodes_num(graph, node_b, start_part_a)
-                        / output_part_b_to_start_part_a_num);
+                    / output_part_b_to_start_part_a_num);
                 cost_4 += f64::max(0.0, c - node_to_node_num(graph, node_b, node_a));
             }
         }
@@ -872,7 +912,7 @@ fn cost_loop_minus(
                     * sup
                     * (node_to_node_num(graph, node_a, "end") / end_part_a_to_end_num)
                     * (nodes_to_node_num(graph, end_part_a, node_b)
-                        / end_part_a_to_input_part_b_num);
+                    / end_part_a_to_input_part_b_num);
                 cost_5 += f64::max(0.0, c - node_to_node_num(graph, node_a, node_b));
             }
         }
@@ -1065,7 +1105,7 @@ pub fn evaluate_cuts_for_imbi<'a>(
                             &output_part_b_minus,
                             sup,
                         )
-                        .unwrap_or(0.0);
+                            .unwrap_or(0.0);
 
                         let loop_evaluation = (
                             (part_a.clone(), part_b.clone()),
