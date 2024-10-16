@@ -113,7 +113,7 @@ pub fn evaluate_cuts<'a>(
                 let fit_exc = fit_exc(&log_variants, &part_a, &part_b);
 
                 if fit_exc > 0.0 {
-                    let cost_exc_plus = cost_exc(&nx_graph, &part_a, &part_b);
+                    let cost_exc_plus = cost_exc(&nx_graph, &part_a, &part_b, sup);
                     let cost_exc_minus = cost_exc_minus(
                         &nx_graph_minus,
                         &activities_minus_in_part_a,
@@ -635,10 +635,10 @@ fn cost_seq_minus(
     cost_1 + cost_2 + cost_3
 }
 
-fn cost_exc(graph: &PyGraph, part_a: &HashSet<&str>, part_b: &HashSet<&str>) -> f64 {
+fn cost_exc(graph: &PyGraph, part_a: &HashSet<&str>, part_b: &HashSet<&str>, sup: f64) -> f64 {
     let cost_1 = edge_boundary_directed_num(graph, part_a, part_b);
     let cost_2 = edge_boundary_directed_num(graph, part_b, part_a);
-    cost_1 + cost_2
+    (1.0 - sup) * cost_1 + cost_2
 }
 
 fn cost_exc_minus(
@@ -1018,11 +1018,12 @@ pub fn evaluate_cuts_for_imbi<'a>(
                 let fit_exc = fit_exc(&log_variants, &part_a, &part_b);
 
                 if fit_exc > 0.0 {
-                    let cost_exc_plus = cost_exc(&nx_graph, &part_a, &part_b);
+                    let cost_exc_plus = cost_exc(&nx_graph, &part_a, &part_b, sup);
                     let cost_exc_minus = cost_exc(
                         &nx_graph_minus,
                         &activities_minus_in_part_a,
                         &activities_minus_in_part_b,
+                        sup,
                     );
 
                     let exc_evaluation = (
