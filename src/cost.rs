@@ -212,7 +212,7 @@ pub fn evaluate_cuts<'a>(
                             &edge_case_id_map_m,
                             &similarity_matrix,
                         )
-                            .unwrap_or(0.0);
+                        .unwrap_or(0.0);
 
                         let loop_evaluation = (
                             (part_a.clone(), part_b.clone()),
@@ -558,7 +558,7 @@ fn cost_seq(
     //     }
     // }
 
-    cost_1 + sup * cost_2
+    (1.0 - sup) * cost_1 + sup * cost_2
 }
 
 fn cost_seq_minus(
@@ -804,7 +804,7 @@ fn cost_loop(
         return None;
     }
 
-    Some(cost_1 + cost_2 + cost_3 + sup * (cost_4 + cost_5))
+    Some((1.0 - sup) * (cost_1 + cost_2 + cost_3) + sup * (cost_4 + cost_5))
 }
 
 fn cost_loop_minus(
@@ -895,7 +895,7 @@ fn cost_loop_minus(
                     * sup
                     * (node_to_node_num(graph, "start", node_a) / start_to_start_part_a_num)
                     * (node_to_nodes_num(graph, node_b, start_part_a)
-                    / output_part_b_to_start_part_a_num);
+                        / output_part_b_to_start_part_a_num);
                 cost_4 += f64::max(0.0, c - node_to_node_num(graph, node_b, node_a));
             }
         }
@@ -912,7 +912,7 @@ fn cost_loop_minus(
                     * sup
                     * (node_to_node_num(graph, node_a, "end") / end_part_a_to_end_num)
                     * (nodes_to_node_num(graph, end_part_a, node_b)
-                    / end_part_a_to_input_part_b_num);
+                        / end_part_a_to_input_part_b_num);
                 cost_5 += f64::max(0.0, c - node_to_node_num(graph, node_a, node_b));
             }
         }
@@ -1105,7 +1105,7 @@ pub fn evaluate_cuts_for_imbi<'a>(
                             &output_part_b_minus,
                             sup,
                         )
-                            .unwrap_or(0.0);
+                        .unwrap_or(0.0);
 
                         let loop_evaluation = (
                             (part_a.clone(), part_b.clone()),
