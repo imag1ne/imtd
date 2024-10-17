@@ -525,8 +525,9 @@ fn cost_seq(
     let part_a_out_degree = graph.nodes_out_degree(part_a);
     let part_b_out_degree = graph.nodes_out_degree(part_b);
     let part_a_and_part_b_out_degree = part_a_out_degree * part_b_out_degree;
+    let part_b_excluding_start = part_b - start_set;
     for &node_a in part_a {
-        for &node_b in part_b {
+        for &node_b in &part_b_excluding_start {
             let expected = sup * avg_flow * graph.out_degree(node_a) * graph.out_degree(node_b)
                 / part_a_and_part_b_out_degree;
             let cost = f64::max(0.0, expected - flow[&(node_a, node_b)]);
@@ -534,31 +535,36 @@ fn cost_seq(
         }
     }
 
-    // let mut cost_3 = 0.0;
-    // let part_a_with_start = part_a | &HashSet::from(["start"]);
-    // let part_b_with_end = part_b | &HashSet::from(["end"]);
-    // let part_a_with_start_to_part_b_with_end_num =
-    //     edge_boundary_directed_num(graph, &part_a_with_start, &part_b_with_end);
-    // for &end_node in end_set {
-    //     for &start_node in start_set {
-    //         let num_end_node_to_part_b_with_end =
-    //             node_to_nodes_num(graph, end_node, &part_b_with_end);
-    //         let num_part_a_with_start_to_start_node =
-    //             nodes_to_node_num(graph, &part_a_with_start, start_node);
-    //         let cost = f64::max(
-    //             0.0,
-    //             scores.get(&(end_node, start_node)).unwrap_or(&1.0)
-    //                 * num_end_node_to_part_b_with_end
-    //                 * sup
-    //                 * num_part_a_with_start_to_start_node
-    //                 / part_a_with_start_to_part_b_with_end_num
-    //                 - node_to_node_num(graph, end_node, start_node),
-    //         );
-    //         cost_3 += cost;
-    //     }
-    // }
+    let mut cost_3 = 0.0;
+    let part_a_with_start = part_a | &HashSet::from(["start"]);
+    let part_b_with_end = part_b | &HashSet::from(["end"]);
+    let part_a_with_start_to_part_b_with_end_num =
+        edge_boundary_directed_num(graph, &part_a_with_start, &part_b_with_end);
+    let (edges_count_a_end_to_b_start, total_weight_a_end_to_b_start) =
+        edge_boundary_directed(graph, end_set, start_set)
+            .fold((0.0, 0.0), |(count, weights), edge| {
+                (count + 1.0, weights + edge.weight())
+            });
+    let avg_weight_a_end_to_b_start = total_weight_a_end_to_b_start / edges_count_a_end_to_b_start;
+    let end_node_and_start_node_out_degree =
+        graph.nodes_out_degree(end_set) * graph.nodes_out_degree(start_set);
 
-    cost_1 + cost_2
+    for &end_node in end_set {
+        for &start_node in start_set {
+            let expected = sup
+                * avg_weight_a_end_to_b_start
+                * graph.out_degree(end_node)
+                * graph.out_degree(start_node)
+                / end_node_and_start_node_out_degree;
+            let cost = f64::max(
+                0.0,
+                expected - node_to_node_num(graph, end_node, start_node),
+            );
+            cost_3 += cost;
+        }
+    }
+
+    cost_1 + cost_2 + cost_3
 }
 
 fn cost_seq_minus(
@@ -696,10 +702,11 @@ fn cost_par(graph: &PyGraph, part_a: &HashSet<&str>, part_b: &HashSet<&str>, sup
 
     let part_a_out_degree = graph.nodes_out_degree(part_a);
     let part_b_out_degree = graph.nodes_out_degree(part_b);
+    let part_a_and_part_b_out_degree = part_a_out_degree * part_b_out_degree;
     for &node_a in part_a {
         for &node_b in part_b {
             let expected = sup * graph.out_degree(node_a) * graph.out_degree(node_b)
-                / (part_a_out_degree * part_b_out_degree);
+                / part_a_and_part_b_out_degree;
             cost_1 += f64::max(
                 0.0,
                 expected * avg_weight_a_to_b - node_to_node_num(graph, node_a, node_b),
@@ -802,9 +809,9 @@ fn cost_loop(
         return None;
     }
 
-    if (cost_4 + cost_5) / (2.0 * sup * m_p) > 0.3 {
-        return None;
-    }
+    // if (cost_4 + cost_5) / (2.0 * sup * m_p) > 0.3 {
+    //     return None;
+    // }
 
     Some(cost_1 + cost_2 + cost_3 + cost_4 + cost_5)
 }
