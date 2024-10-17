@@ -527,7 +527,7 @@ fn cost_seq(
     let part_a_and_part_b_out_degree = part_a_out_degree * part_b_out_degree;
     for &node_a in part_a {
         for &node_b in part_b {
-            let expected = avg_flow * graph.out_degree(node_a) * graph.out_degree(node_b)
+            let expected = sup * avg_flow * graph.out_degree(node_a) * graph.out_degree(node_b)
                 / part_a_and_part_b_out_degree;
             let cost = f64::max(0.0, expected - flow[&(node_a, node_b)]);
             cost_2 += cost;
@@ -558,7 +558,7 @@ fn cost_seq(
     //     }
     // }
 
-    (1.0 - sup) * cost_1 + sup * cost_2
+    cost_1 + cost_2
 }
 
 fn cost_seq_minus(
@@ -638,7 +638,7 @@ fn cost_seq_minus(
 fn cost_exc(graph: &PyGraph, part_a: &HashSet<&str>, part_b: &HashSet<&str>, sup: f64) -> f64 {
     let cost_1 = edge_boundary_directed_num(graph, part_a, part_b);
     let cost_2 = edge_boundary_directed_num(graph, part_b, part_a);
-    (1.0 - sup) * (cost_1 + cost_2)
+    cost_1 + cost_2
 }
 
 fn cost_exc_minus(
@@ -711,7 +711,7 @@ fn cost_par(graph: &PyGraph, part_a: &HashSet<&str>, part_b: &HashSet<&str>, sup
         }
     }
 
-    sup * (cost_1 + cost_2)
+    cost_1 + cost_2
 }
 
 fn cost_loop(
@@ -772,8 +772,9 @@ fn cost_loop(
     if !output_part_b.is_empty() {
         for &node_a in start_part_a {
             for &node_b in output_part_b {
-                let expected = max_avg_weight * graph.out_degree(node_a) * graph.out_degree(node_b)
-                    / start_part_a_and_output_part_b_out_degree;
+                let expected =
+                    sup * max_avg_weight * graph.out_degree(node_a) * graph.out_degree(node_b)
+                        / start_part_a_and_output_part_b_out_degree;
                 cost_4 += f64::max(0.0, expected - node_to_node_num(graph, node_b, node_a));
             }
         }
@@ -789,8 +790,9 @@ fn cost_loop(
     if !input_part_b.is_empty() {
         for &node_a in end_part_a {
             for &node_b in input_part_b {
-                let expected = max_avg_weight * graph.out_degree(node_a) * graph.out_degree(node_b)
-                    / end_part_a_and_input_part_b_out_degree;
+                let expected =
+                    sup * max_avg_weight * graph.out_degree(node_a) * graph.out_degree(node_b)
+                        / end_part_a_and_input_part_b_out_degree;
                 cost_5 += f64::max(0.0, expected - node_to_node_num(graph, node_a, node_b));
             }
         }
@@ -804,7 +806,7 @@ fn cost_loop(
         return None;
     }
 
-    Some((1.0 - sup) * (cost_1 + cost_2 + cost_3) + sup * (cost_4 + cost_5))
+    Some(cost_1 + cost_2 + cost_3 + cost_4 + cost_5)
 }
 
 fn cost_loop_minus(
@@ -922,9 +924,9 @@ fn cost_loop_minus(
         return None;
     }
 
-    if (cost_4 + cost_5) / (2.0 * sup * m_p) > 0.3 {
-        return None;
-    }
+    // if (cost_4 + cost_5) / (2.0 * sup * m_p) > 0.3 {
+    //     return None;
+    // }
 
     Some(cost_1 + cost_2 + cost_3 + cost_4 + cost_5)
 }
