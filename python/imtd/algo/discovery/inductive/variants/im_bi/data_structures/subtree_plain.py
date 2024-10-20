@@ -20,7 +20,7 @@ from pm4py.algo.discovery.dfg.utils.dfg_utils import get_activities_from_dfg
 from pm4py.objects.log.obj import EventLog, Event
 from imtd.algo.analysis import dfg_functions
 from imtd.algo.discovery.dfg import algorithm as dfg_discovery
-from imtd import evaluate_cuts_for_imbi as evaluate_cuts, find_possible_partitions
+from imtd import evaluate_cuts_imbi, find_possible_partitions
 
 
 def artificial_start_end(event_log: EventLog) -> EventLog:
@@ -369,3 +369,27 @@ def get_start_activities_from_dfg_with_artificial_start(dfg, activities):
 
 def get_end_activities_from_dfg_with_artificial_end(dfg, activities):
     return set(s for s, t in dfg if (s in activities and (t == 'end')))
+
+
+def evaluate_cuts(possible_partitions, dfg, dfg_minus, nx_graph, nx_graph_minus,
+                  max_flow_graph, max_flow_graph_minus, activities_minus, log_variants,
+                  log_length, log_minus_length, feat_scores, feat_scores_toggle, sup, ratio,
+                  size_par):
+    parameters = {
+        "dfg": dfg,
+        "dfg_minus": dfg_minus,
+        "nx_graph": nx_graph,
+        "nx_graph_minus": nx_graph_minus,
+        "max_flow_graph": max_flow_graph,
+        "max_flow_graph_minus": max_flow_graph_minus,
+        "activities_minus": activities_minus,
+        "log_variants": log_variants,
+        "log_length": log_length,
+        "log_minus_length": log_minus_length,
+        "feat_scores": feat_scores,
+        "feat_scores_toggle": feat_scores_toggle,
+        "sup": sup,
+        "ratio": ratio,
+        "size_par": size_par
+    }
+    return evaluate_cuts_for_imbi(possible_partitions, parameters)

@@ -22,7 +22,7 @@ from imtd.algo.discovery.dfg import algorithm as dfg_discovery
 from imtd.algo.discovery.inductive.util.petri_el_count import Counts
 from imtd.algo.discovery.inductive.variants.im_bi.util import splitting as split
 from imtd.algo.discovery.inductive.variants.im_td.util import log_utils
-from imtd import evaluate_cuts_for_imbi as evaluate_cuts, find_possible_partitions, filter_dfg as filter_dfg_knapsack
+from imtd import evaluate_cuts_imfc, find_possible_partitions, filter_dfg as filter_dfg_knapsack
 
 
 def generate_nx_graph_from_dfg(dfg: dict[tuple[str, str], float]) -> DiGraph:
@@ -148,10 +148,9 @@ class SubtreePlain:
             #                      self.edge_case_id_map_minus, self.similarity_matrix, feat_scores, feat_scores_togg,
             #                      sup, ratio,
             #                      size_par)
-            cut += evaluate_cuts(possible_partitions, dfg_art, dfg_art_minus, nx_graph, nx_graph_minus,
-                                 max_flow_graph, max_flow_graph_minus, activities_minus, log_variants,
-                                 len(self.log), len(self.log_minus), feat_scores, feat_scores_togg, sup, ratio,
-                                 size_par)
+            cut += evaluate_cuts(possible_partitions, dfg_art, nx_graph, nx_graph_minus,
+                                 max_flow_graph, activities_minus, log_variants,
+                                 len(self.log), len(self.log_minus), sup)
 
             sorted_cuts = sorted(cut, key=lambda x: (
                 x[4], x[2], ['exc', 'exc2', 'seq', 'par', 'loop', 'loop_tau'].index(x[1]),
@@ -373,3 +372,18 @@ def nodes_max_outgoing_edge_weight(dfg):
             max_outgoing_edge_weight[source] = max(max_outgoing_edge_weight[source], weight)
 
     return max_outgoing_edge_weight
+
+
+def evaluate_cuts(possible_partitions, dfg, nx_graph,
+                  max_flow_graph, activities_minus, log_variants,
+                  log_length, sup):
+    parameters = {
+        "dfg": dfg,
+        "nx_graph": nx_graph,
+        "max_flow_graph": max_flow_graph,
+        "activities_minus": activities_minus,
+        "log_variants": log_variants,
+        "log_length": log_length,
+        "sup": sup,
+    }
+    return evaluate_cuts_imfc(possible_partitions, parameters)
