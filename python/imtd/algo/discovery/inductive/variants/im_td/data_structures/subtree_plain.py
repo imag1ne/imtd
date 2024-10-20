@@ -148,9 +148,9 @@ class SubtreePlain:
             #                      self.edge_case_id_map_minus, self.similarity_matrix, feat_scores, feat_scores_togg,
             #                      sup, ratio,
             #                      size_par)
-            cut += evaluate_cuts(possible_partitions, dfg_art, nx_graph, nx_graph_minus,
+            cut += evaluate_cuts(possible_partitions, dfg_art, nx_graph,
                                  max_flow_graph, activities_minus, log_variants,
-                                 len(self.log), len(self.log_minus), sup)
+                                 len(self.log), sup)
 
             sorted_cuts = sorted(cut, key=lambda x: (
                 x[4], x[2], ['exc', 'exc2', 'seq', 'par', 'loop', 'loop_tau'].index(x[1]),
