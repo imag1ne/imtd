@@ -392,4 +392,4 @@ def evaluate_cuts(possible_partitions, dfg, dfg_minus, nx_graph, nx_graph_minus,
         "ratio": ratio,
         "size_par": size_par
     }
-    return evaluate_cuts_for_imbi(possible_partitions, parameters)
+    return evaluate_cuts_imbi(possible_partitions, parameters)
