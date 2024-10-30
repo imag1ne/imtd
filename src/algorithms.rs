@@ -166,6 +166,7 @@ pub fn filter_dfg<'a>(
         (0.0..=1.0).contains(&theta),
         "Theta must be between 0 and 1"
     );
+    let _size_par = size_par;
 
     if dfg_minus.is_empty() || theta == 0.0 {
         return dfg;
@@ -186,52 +187,51 @@ pub fn filter_dfg<'a>(
         .filter(|(edge, _)| dfg_minus.contains_key(edge))
         .map(|(edge, weight)| (*edge, *weight))
         .collect::<HashMap<_, _>>();
-    let mut removable_edges = vec![];
-    let mut total_weight = 0;
+    let mut edges_to_keep = vec![];
+    let mut reserved_edges = HashSet::new();
+    let mut total_keep_weight = 0;
     for (&edge, &weight) in &intersection_dfg {
         let (source, target) = edge;
         let max_weight = max_outgoing_edge_weights[source];
-        let value = dfg_minus[&(source, target)];
-        if weight == max_weight
-            || source == "start"
-            || target == "end"
-            || weight >= (size_par * value as f64) as usize
-        {
-            continue;
+        let wt = dfg_minus[&(source, target)];
+        let v = weight;
+        let selected_edge = SelectedEdge::new(source, target, wt, v);
+        if weight == max_weight || source == "start" || target == "end" {
+            reserved_edges.insert(edge);
+        } else {
+            edges_to_keep.push(selected_edge);
+            total_keep_weight += wt;
         }
-
-        let remove_edge = RemovableEdge::new(source, target, weight, value);
-        removable_edges.push(remove_edge);
-        total_weight += weight;
-    }
-
-    // Edge case: If no edges can be removed
-    if removable_edges.is_empty() || total_weight == 0 {
-        return dfg;
     }
 
     // Calculate the total capacity
-    let capacity = (total_weight as f64 * theta) as usize;
+    let capacity = (total_keep_weight as f64 * (1.0 - theta)) as usize;
 
     // Initialize DP table
-    let n = removable_edges.len();
+    let n = edges_to_keep.len();
     let mut dp = vec![vec![0; capacity + 1]; n + 1];
     // Build the DP table
-    knapsack_solver(&mut dp, &removable_edges);
+    knapsack_solver(&mut dp, &edges_to_keep);
 
     // Find the selected edges
-    let edges_to_remove = find_selected_edges(&dp, &removable_edges, capacity);
+    let selected_edges = find_selected_edges(&dp, &edges_to_keep, capacity);
 
     // Remove selected edges from the desirable DFG
     dfg.into_iter()
-        .filter(|(edge, _)| !edges_to_remove.contains(edge))
+        .filter(|(edge, _)| {
+            if intersection_dfg.contains_key(edge) {
+                selected_edges.contains(edge) || reserved_edges.contains(edge)
+            } else {
+                true
+            }
+        })
         .collect()
 }
 
-fn knapsack_solver(dp: &mut [Vec<usize>], removable_edges: &[RemovableEdge]) {
-    let n = removable_edges.len();
+fn knapsack_solver(dp: &mut [Vec<usize>], edges_to_keep: &[SelectedEdge]) {
+    let n = edges_to_keep.len();
     for i in 1..=n {
-        let item = &removable_edges[i - 1];
+        let item = &edges_to_keep[i - 1];
         let weight = item.weight;
         let value = item.value;
 
@@ -254,32 +254,32 @@ fn knapsack_solver(dp: &mut [Vec<usize>], removable_edges: &[RemovableEdge]) {
 
 fn find_selected_edges<'a>(
     dp: &[Vec<usize>],
-    removable_edges: &[RemovableEdge<'a>],
+    edges_to_keep: &[SelectedEdge<'a>],
     capacity: usize,
 ) -> HashSet<(&'a str, &'a str)> {
-    let n = removable_edges.len();
+    let n = edges_to_keep.len();
     let mut c = capacity;
-    let mut edges_to_remove = HashSet::new();
+    let mut result = HashSet::new();
     for i in (1..=n).rev() {
         if dp[i][c] != dp[i - 1][c] {
-            let edge = &removable_edges[i - 1];
-            edges_to_remove.insert(edge.edge());
+            let edge = &edges_to_keep[i - 1];
+            result.insert(edge.edge());
             c -= edge.weight;
         }
     }
 
-    edges_to_remove
+    result
 }
 
 #[derive(Debug)]
-struct RemovableEdge<'a> {
+struct SelectedEdge<'a> {
     source: &'a str,
     target: &'a str,
     weight: usize,
     value: usize,
 }
 
-impl<'a> RemovableEdge<'a> {
+impl<'a> SelectedEdge<'a> {
     pub fn new(source: &'a str, target: &'a str, weight: usize, value: usize) -> Self {
         Self {
             source,
@@ -314,7 +314,7 @@ mod tests {
             (("B", "D"), 8),
         ]);
         let theta = 0.5;
-        let filtered_dfg = filter_dfg(desirable_dfg, undesirable_dfg, theta);
+        let filtered_dfg = filter_dfg(desirable_dfg, undesirable_dfg, theta, 1.0);
         let expected_dfg = HashMap::from([
             (("A", "B"), 10),
             (("A", "C"), 5),
@@ -330,7 +330,7 @@ mod tests {
         let desirable_dfg = HashMap::from([(("A", "B"), 10), (("A", "C"), 5)]);
         let undesirable_dfg = HashMap::new();
         let theta = 0.5;
-        let filtered_dfg = filter_dfg(desirable_dfg.clone(), undesirable_dfg, theta);
+        let filtered_dfg = filter_dfg(desirable_dfg.clone(), undesirable_dfg, theta, 1.0);
 
         assert_eq!(filtered_dfg, desirable_dfg);
     }
@@ -340,7 +340,7 @@ mod tests {
         let desirable_dfg = HashMap::from([(("A", "B"), 2), (("A", "C"), 3), (("B", "C"), 1)]);
         let undesirable_dfg = HashMap::from([(("A", "B"), 5), (("A", "C"), 6), (("B", "C"), 4)]);
         let theta = 1.0;
-        let filtered_dfg = filter_dfg(desirable_dfg, undesirable_dfg, theta);
+        let filtered_dfg = filter_dfg(desirable_dfg, undesirable_dfg, theta, 1.0);
         let expected_dfg = HashMap::from([(("A", "C"), 3), (("B", "C"), 1)]);
 
         assert_eq!(filtered_dfg, expected_dfg);
@@ -351,7 +351,7 @@ mod tests {
         let desirable_dfg = HashMap::from([(("A", "B"), 10), (("A", "C"), 9), (("A", "D"), 1)]);
         let undesirable_dfg = HashMap::from([(("A", "E"), 5)]);
         let theta = 0.4;
-        let filtered_dfg = filter_dfg(desirable_dfg, undesirable_dfg, theta);
+        let filtered_dfg = filter_dfg(desirable_dfg, undesirable_dfg, theta, 1.0);
         let expected_dfg = HashMap::from([(("A", "B"), 10), (("A", "C"), 9), (("A", "D"), 1)]);
 
         assert_eq!(filtered_dfg, expected_dfg);
@@ -378,8 +378,12 @@ mod tests {
 
         // Test with theta = 0.5
         let theta_low = 0.5;
-        let filtered_dfg_low =
-            filter_dfg(desirable_dfg.clone(), undesirable_dfg.clone(), theta_low);
+        let filtered_dfg_low = filter_dfg(
+            desirable_dfg.clone(),
+            undesirable_dfg.clone(),
+            theta_low,
+            1.0,
+        );
 
         let expected_dfg_low = HashMap::from([
             (("A", "B"), 4),
@@ -392,7 +396,7 @@ mod tests {
 
         // Test with theta = 1.0
         let theta_high = 1.0;
-        let filtered_dfg_high = filter_dfg(desirable_dfg.clone(), undesirable_dfg, theta_high);
+        let filtered_dfg_high = filter_dfg(desirable_dfg.clone(), undesirable_dfg, theta_high, 1.0);
 
         let expected_dfg_high = HashMap::from([(("A", "C"), 6), (("B", "D"), 5), (("C", "D"), 2)]);
 
