@@ -155,10 +155,12 @@ pub fn add_start_and_end(
 }
 
 #[pyfunction]
+#[pyo3(signature = (dfg, dfg_minus, theta=0.0, size_par=1.0))]
 pub fn filter_dfg<'a>(
     dfg: HashMap<(&'a str, &'a str), usize>,
     dfg_minus: HashMap<(&str, &str), usize>,
     theta: f64,
+    size_par: f64,
 ) -> HashMap<(&'a str, &'a str), usize> {
     assert!(
         (0.0..=1.0).contains(&theta),
@@ -189,11 +191,15 @@ pub fn filter_dfg<'a>(
     for (&edge, &weight) in &intersection_dfg {
         let (source, target) = edge;
         let max_weight = max_outgoing_edge_weights[source];
-        if weight == max_weight || source == "start" || target == "end" {
+        let value = dfg_minus[&(source, target)];
+        if weight == max_weight
+            || source == "start"
+            || target == "end"
+            || weight >= (size_par * value as f64) as usize
+        {
             continue;
         }
 
-        let value = dfg_minus[&(source, target)];
         let remove_edge = RemovableEdge::new(source, target, weight, value);
         removable_edges.push(remove_edge);
         total_weight += weight;
@@ -211,6 +217,19 @@ pub fn filter_dfg<'a>(
     let n = removable_edges.len();
     let mut dp = vec![vec![0; capacity + 1]; n + 1];
     // Build the DP table
+    knapsack_solver(&mut dp, &removable_edges);
+
+    // Find the selected edges
+    let edges_to_remove = find_selected_edges(&dp, &removable_edges, capacity);
+
+    // Remove selected edges from the desirable DFG
+    dfg.into_iter()
+        .filter(|(edge, _)| !edges_to_remove.contains(edge))
+        .collect()
+}
+
+fn knapsack_solver(dp: &mut [Vec<usize>], removable_edges: &[RemovableEdge]) {
+    let n = removable_edges.len();
     for i in 1..=n {
         let item = &removable_edges[i - 1];
         let weight = item.weight;
@@ -230,16 +249,15 @@ pub fn filter_dfg<'a>(
                     *dp_curr_c = dp_prev[c].max(dp_prev[c - weight] + value);
                 }
             });
-        // for c in 1..=capacity {
-        //     if item.weight > c {
-        //         dp[i][c] = dp[i - 1][c];
-        //     } else {
-        //         dp[i][c] = dp[i - 1][c].max(dp[i - 1][c - weight] + value);
-        //     }
-        // }
     }
+}
 
-    // Find the selected edges
+fn find_selected_edges<'a>(
+    dp: &[Vec<usize>],
+    removable_edges: &[RemovableEdge<'a>],
+    capacity: usize,
+) -> HashSet<(&'a str, &'a str)> {
+    let n = removable_edges.len();
     let mut c = capacity;
     let mut edges_to_remove = HashSet::new();
     for i in (1..=n).rev() {
@@ -250,10 +268,7 @@ pub fn filter_dfg<'a>(
         }
     }
 
-    // Remove selected edges from the desirable DFG
-    dfg.into_iter()
-        .filter(|(edge, _)| !edges_to_remove.contains(edge))
-        .collect()
+    edges_to_remove
 }
 
 #[derive(Debug)]
