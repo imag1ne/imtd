@@ -24,7 +24,7 @@ def split_bpic_2017_event_log(event_log):
     undesirable_event_log = pm4py.filter_trace_attribute_values(event_log, DEFAULT_NAME_KEY,
                                                                 ['W_Call incomplete files'], False)
 
-    return (desirable_event_log, undesirable_event_log)
+    return desirable_event_log, undesirable_event_log
 
 
 if __name__ == "__main__":

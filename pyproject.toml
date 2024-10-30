@@ -5,15 +5,17 @@ build-backend = "maturin"
 [tool.maturin]
 python-source = "python"
 
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+
 [tool.poetry]
 name = "imtd"
 version = "0.1.0"
 description = "Discoviering process model utilizing desirable and undesirable traces"
 authors = ["Xudong Zhu"]
 readme = "README.md"
-packages = [
-    { include = "imtd", from = "python" },
-]
+packages = [{ include = "imtd", from = "python" }]
 
 [tool.poetry.dependencies]
 python = ">=3.10"
