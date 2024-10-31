@@ -101,8 +101,8 @@ pub fn find_possible_partitions(
                                 part_a.clone(),
                                 &(&new_adj
                                     | &graph.all_neighbors_weights(
-                                        &disconnected_nodes_to_end_in_graph_part_b,
-                                    ))
+                                    &disconnected_nodes_to_end_in_graph_part_b,
+                                ))
                                     - &part_a,
                             ));
                         }
@@ -170,13 +170,8 @@ pub fn filter_dfg<'a>(
     }
 
     // Identify and keep the max outgoing edge for each node
-    let mut max_outgoing_edge_weights = HashMap::new();
-    for (&(source, _), &weight) in &dfg {
-        let max_weight = max_outgoing_edge_weights.entry(source).or_insert(weight);
-        if weight > *max_weight {
-            *max_weight = weight;
-        }
-    }
+    let max_outgoing_edge_weights = dfg_max_outgoing_edge_weights(&dfg);
+    let max_outgoing_edge_weights_minus = dfg_max_outgoing_edge_weights(&dfg_minus);
 
     // Prepare the list of edges that can be potentially removed
     let intersection_dfg = dfg
@@ -193,8 +188,8 @@ pub fn filter_dfg<'a>(
             continue;
         }
 
-        let value = dfg_minus[&(source, target)];
-        let remove_edge = RemovableEdge::new(source, target, weight, value);
+        let value = (dfg_minus[&(source, target)] as f64) / (max_outgoing_edge_weights_minus[source] as f64) * 100.0;
+        let remove_edge = RemovableEdge::new(source, target, weight, value as usize);
         removable_edges.push(remove_edge);
         total_weight += weight;
     }
@@ -254,6 +249,20 @@ pub fn filter_dfg<'a>(
     dfg.into_iter()
         .filter(|(edge, _)| !edges_to_remove.contains(edge))
         .collect()
+}
+
+fn dfg_max_outgoing_edge_weights<'a>(
+    dfg: &HashMap<(&'a str, &'a str), usize>,
+) -> HashMap<&'a str, usize> {
+    let mut max_outgoing_edge_weights = HashMap::new();
+    for (&(source, _), &weight) in dfg {
+        let max_weight = max_outgoing_edge_weights.entry(source).or_insert(weight);
+        if weight > *max_weight {
+            *max_weight = weight;
+        }
+    }
+
+    max_outgoing_edge_weights
 }
 
 #[derive(Debug)]
