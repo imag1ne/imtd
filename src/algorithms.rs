@@ -173,13 +173,8 @@ pub fn filter_dfg<'a>(
     }
 
     // Identify and keep the max outgoing edge for each node
-    let mut max_outgoing_edge_weights = HashMap::new();
-    for (&(source, _), &weight) in &dfg {
-        let max_weight = max_outgoing_edge_weights.entry(source).or_insert(weight);
-        if weight > *max_weight {
-            *max_weight = weight;
-        }
-    }
+    let max_outgoing_edge_weights = dfg_max_outgoing_edge_weights(&dfg);
+    // let max_outgoing_edge_weights_minus = dfg_max_outgoing_edge_weights(&dfg_minus);
 
     // Prepare the list of edges that can be potentially removed
     let intersection_dfg = dfg
@@ -194,8 +189,8 @@ pub fn filter_dfg<'a>(
         let (source, target) = edge;
         let max_weight = max_outgoing_edge_weights[source];
         let wt = dfg_minus[&(source, target)];
-        let v = weight;
-        let selected_edge = SelectedEdge::new(source, target, wt, v);
+        let v = (weight as f64 / max_weight as f64) * 100.0;
+        let selected_edge = SelectedEdge::new(source, target, wt, v as usize);
         if weight == max_weight || source == "start" || target == "end" {
             reserved_edges.insert(edge);
         } else {
@@ -226,6 +221,20 @@ pub fn filter_dfg<'a>(
             }
         })
         .collect()
+}
+
+fn dfg_max_outgoing_edge_weights<'a>(
+    dfg: &HashMap<(&'a str, &'a str), usize>,
+) -> HashMap<&'a str, usize> {
+    let mut max_outgoing_edge_weights = HashMap::new();
+    for (&(source, _), &weight) in dfg {
+        let max_weight = max_outgoing_edge_weights.entry(source).or_insert(weight);
+        if weight > *max_weight {
+            *max_weight = weight;
+        }
+    }
+
+    max_outgoing_edge_weights
 }
 
 fn knapsack_solver(dp: &mut [Vec<usize>], edges_to_keep: &[SelectedEdge]) {
