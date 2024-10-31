@@ -118,10 +118,10 @@ class SubtreePlain:
             feat_scores, feat_scores_togg = initialize_feature_scores(self.log_art, self.log_minus_art)
 
             dfg_art = dfg_discovery.apply(self.log_art, variant=dfg_discovery.Variants.FREQUENCY)
-            dfg_art_minus = dfg_discovery.apply(self.log_minus_art, variant=dfg_discovery.Variants.FREQUENCY)
-            # dfg_art_minus = self.original_dfg_art_minus or dfg_discovery.apply(self.log_minus_art,
-            #                                                                    variant=dfg_discovery.Variants.FREQUENCY)
-            # self.original_dfg_art_minus = dfg_art_minus
+            # dfg_art_minus = dfg_discovery.apply(self.log_minus_art, variant=dfg_discovery.Variants.FREQUENCY)
+            dfg_art_minus = self.original_dfg_art_minus or dfg_discovery.apply(self.log_minus_art,
+                                                                               variant=dfg_discovery.Variants.FREQUENCY)
+            self.original_dfg_art_minus = dfg_art_minus
             filtered_dfg_art = filter_dfg_knapsack(dfg_art, dfg_art_minus, self.weight, size_par)
             dfg_art = Counter(filtered_dfg_art)
 
