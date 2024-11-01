@@ -36,7 +36,7 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
 
     # load the event logs
-    log = pm4py.read_xes(event_log, return_legacy_log_object=True)
+    # log = pm4py.read_xes(event_log, return_legacy_log_object=True)
     log_p = pm4py.read_xes(desirable_log, return_legacy_log_object=True)
     if undesirable_log:
         log_m = pm4py.read_xes(undesirable_log, return_legacy_log_object=True)
