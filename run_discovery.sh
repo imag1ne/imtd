@@ -56,42 +56,42 @@ discover_command="poetry run experiment_1 -v $variant -p $desirable_event_log -m
 
 # Default ranges for parameters if not provided
 default_range() {
-  seq 0.0 0.1 1.0
+  seq 0.0 0.1 1.0 | paste -sd ',' -
 }
 
 # Assign parameter values if provided, otherwise use default range
-threshold_values=${threshold:-$(default_range)}
-support_values=${support:-$(default_range)}
-ratio_values=${ratio:-$(default_range)}
-filter_ratio_values=${filter_ratio:-$(default_range)}
+IFS=',' read -r -a threshold_values <<< "${threshold:-$(default_range)}"
+IFS=',' read -r -a support_values <<< "${support:-$(default_range)}"
+IFS=',' read -r -a ratio_values <<< "${ratio:-$(default_range)}"
+IFS=',' read -r -a filter_ratio_values <<< "${filter_ratio:-$(default_range)}"
 
 # Add specific parameters based on the selected variant
 case $variant in
     "imf")
-        for threshold in $threshold_values; do
+        for threshold in "${threshold_values[@]}"; do
             discover_cmd="$discover_command -t $threshold"
             echo -e "\U2699 Running discovery with command: $discover_cmd"
             $discover_cmd
         done;;
     "imbi")
-        for support in $support_values; do
-            for ratio in $ratio_values; do
+        for support in "${support_values[@]}"; do
+            for ratio in "${ratio_values[@]}"; do
                 discover_cmd="$discover_command -s $support -r $ratio"
                 echo -e "\U2699 Running discovery with command: $discover_cmd"
                 $discover_cmd
             done
         done;;
     "imtd")
-        for support in $support_values; do
-            for filter_ratio in $filter_ratio_values; do
+        for support in "${support_values[@]}"; do
+            for filter_ratio in "${filter_ratio_values[@]}"; do
                 discover_cmd="$discover_command -s $support -f $filter_ratio"
                 echo -e "\U2699 Running discovery with command: $discover_cmd"
                 $discover_cmd
             done
         done;;
     "imfbi")
-        for threshold in $threshold_values; do
-            for filter_ratio in $filter_ratio_values; do
+        for threshold in "${threshold_values[@]}"; do
+            for filter_ratio in "${filter_ratio_values[@]}"; do
                 discover_cmd="$discover_command -t $threshold -f $filter_ratio"
                 echo -e "\U2699 Running discovery with command: $discover_cmd"
                 $discover_cmd
