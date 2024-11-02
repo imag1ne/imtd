@@ -69,14 +69,14 @@ filter_ratio_values=${filter_ratio:-$(default_range)}
 case $variant in
     "imf")
         for threshold in $threshold_values; do
-            discover_cmd=$discover_command+" -t $threshold"
+            discover_cmd="$discover_command -t $threshold"
             echo -e "\U2699 Running discovery with command: $discover_cmd"
             $discover_cmd
         done;;
     "imbi")
         for support in $support_values; do
             for ratio in $ratio_values; do
-                discover_cmd=$discover_command+" -s $support -r $ratio"
+                discover_cmd="$discover_command -s $support -r $ratio"
                 echo -e "\U2699 Running discovery with command: $discover_cmd"
                 $discover_cmd
             done
@@ -84,7 +84,7 @@ case $variant in
     "imtd")
         for support in $support_values; do
             for filter_ratio in $filter_ratio_values; do
-                discover_cmd=$discover_command+" -s $support -f $filter_ratio"
+                discover_cmd="$discover_command -s $support -f $filter_ratio"
                 echo -e "\U2699 Running discovery with command: $discover_cmd"
                 $discover_cmd
             done
@@ -92,7 +92,7 @@ case $variant in
     "imfbi")
         for threshold in $threshold_values; do
             for filter_ratio in $filter_ratio_values; do
-                discover_cmd=$discover_command+" -t $threshold -f $filter_ratio"
+                discover_cmd="$discover_command -t $threshold -f $filter_ratio"
                 echo -e "\U2699 Running discovery with command: $discover_cmd"
                 $discover_cmd
             done
