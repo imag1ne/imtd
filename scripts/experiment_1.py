@@ -46,7 +46,7 @@ def main():
                                                                                      noise_threshold=args.noise_threshold,
                                                                                      multi_processing=True)
             suffix = 't{}'.format(args.noise_threshold)
-            model_filename = 'imtd_petri_{}'.format(suffix)
+            model_filename = 'imf_petri_{}'.format(suffix)
 
         case 'imfbi':
             print("\U0001F9E9 Inductive Miner fbi (threshold={}, filter_ratio={})".format(args.noise_threshold,
@@ -56,7 +56,7 @@ def main():
                                                                                noise_threshold=args.noise_threshold,
                                                                                multi_processing=True)
             suffix = 't{}_f{}'.format(args.noise_threshold, args.filter_ratio)
-            model_filename = 'imtd_petri_{}'.format(suffix)
+            model_filename = 'imfbi_petri_{}'.format(suffix)
 
         case 'imbi':
             print("\U0001F9E9 Inductive Miner bi (support={}, ratio={})".format(args.support, args.ratio))
@@ -68,7 +68,7 @@ def main():
                 size_par=len(log_p) / len(log_m),
                 parallel=args.parallel)
             suffix = 's{}_r{}'.format(args.support, args.ratio)
-            model_filename = 'imtd_petri_{}'.format(suffix)
+            model_filename = 'imbi_petri_{}'.format(suffix)
 
         case 'imtd':
             similarity_matrix = np.zeros((len(log_p), len(log_m)))
