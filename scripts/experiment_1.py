@@ -66,7 +66,7 @@ def main():
                 sup=args.support,
                 ratio=args.ratio,
                 size_par=len(log_p) / len(log_m),
-                parallel=args.parallel)
+                parallel=True)
             suffix = 's{}_r{}'.format(args.support, args.ratio)
             model_filename = 'imbi_petri_{}'.format(suffix)
 
