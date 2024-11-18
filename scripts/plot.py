@@ -132,14 +132,13 @@ def parse_data_filename(filename: str) -> tuple[str, list[float]] | None:
             return variant, [support, ratio]
 
         case 'imtd':
-            if len(filename_parts) < 4 or not filename_parts[2].startswith('s') or not filename_parts[3].startswith(
-                    'r') or not filename_parts[4].startswith('f'):
+            if len(filename_parts) < 3 or not filename_parts[2].startswith('s') or not filename_parts[3].startswith(
+                    'f'):
                 return None
 
             support = float(filename_parts[2][1:])
-            ratio = float(filename_parts[3][1:])
-            filter_ratio = float(filename_parts[4][1:].rstrip('.csv'))
-            return variant, [support, ratio, filter_ratio]
+            filter_ratio = float(filename_parts[3][1:].rstrip('.csv'))
+            return variant, [support, filter_ratio]
 
         case _:
             return None
@@ -201,7 +200,7 @@ def plot_imbi_results(imbi_df, dataset_name, savepath: Path):
 
 def plot_imtd_results(imtd_df, dataset_name, savepath: Path):
     title = 'IMtd-{}'.format(dataset_name)
-    plot_nested_group_results(imtd_df, [('support', 's'), ('ratio', 'r'), ('filter_ratio', 'f')], title,
+    plot_nested_group_results(imtd_df, [('support', 's'), ('filter_ratio', 'f')], title,
                               savepath.joinpath('imtd_fig'))
 
 
