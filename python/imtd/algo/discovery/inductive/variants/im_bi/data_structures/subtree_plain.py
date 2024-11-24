@@ -21,6 +21,7 @@ from pm4py.objects.log.obj import EventLog, Event
 from imtd.algo.analysis import dfg_functions
 from imtd.algo.discovery.dfg import algorithm as dfg_discovery
 from imtd import evaluate_cuts_imbi, find_possible_partitions
+from imtd import filter_dfg as filter_dfg_knapsack
 
 
 def artificial_start_end(event_log: EventLog) -> EventLog:
@@ -89,6 +90,7 @@ class SubtreePlain:
     parallel: bool = False
 
     dfg: Optional[Mapping[tuple[str, str], int]] = None
+    original_dfg_art_minus = None
     activities: Optional[Set[str]] = None
     detected_cut: Optional[str] = field(init=False, default=None)
     children: list = field(init=False, default_factory=list)
@@ -126,7 +128,12 @@ class SubtreePlain:
             feat_scores, feat_scores_togg = initialize_feature_scores(self.log_art, self.log_minus_art)
 
             dfg_art = dfg_discovery.apply(self.log_art, variant=dfg_discovery.Variants.FREQUENCY)
-            dfg_art_minus = dfg_discovery.apply(self.log_minus_art, variant=dfg_discovery.Variants.FREQUENCY)
+            # dfg_art_minus = dfg_discovery.apply(self.log_minus_art, variant=dfg_discovery.Variants.FREQUENCY)
+            dfg_art_minus = self.original_dfg_art_minus or dfg_discovery.apply(self.log_minus_art,
+                                                                               variant=dfg_discovery.Variants.FREQUENCY)
+            self.original_dfg_art_minus = dfg_art_minus
+            filtered_dfg_art = filter_dfg_knapsack(dfg_art, dfg_art_minus, 0.3)
+            dfg_art = Counter(filtered_dfg_art)
 
             nx_graph = generate_nx_graph_from_dfg(dfg_art)
             nx_graph_minus = generate_nx_graph_from_dfg(dfg_art_minus)
