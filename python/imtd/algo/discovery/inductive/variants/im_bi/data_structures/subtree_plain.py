@@ -21,7 +21,7 @@ from pm4py.objects.log.obj import EventLog, Event
 from imtd.algo.analysis import dfg_functions
 from imtd.algo.discovery.dfg import algorithm as dfg_discovery
 from imtd import evaluate_cuts_imbi, find_possible_partitions
-from imtd import filter_dfg as filter_dfg_knapsack
+from imtd.algo.discovery.inductive.variants.im_td.data_structures.subtree_plain import filter_dfg as filter_dfg_knapsack
 
 
 def artificial_start_end(event_log: EventLog) -> EventLog:
