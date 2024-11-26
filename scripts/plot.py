@@ -66,9 +66,7 @@ def main():
             case 'imtd':
                 support = params[0]
                 imtd_results['support'].append(support)
-                ratio = params[1]
-                imtd_results['ratio'].append(ratio)
-                filter_ratio = params[2]
+                filter_ratio = params[1]
                 imtd_results['filter_ratio'].append(filter_ratio)
                 load_data_to_dict(filepath, imtd_results, measurement_keys)
 
