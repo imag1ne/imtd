@@ -31,7 +31,6 @@ def main():
 
     imtd_results = {key: [] for key in measurement_keys}
     imtd_results['support'] = []
-    imtd_results['ratio'] = []
     imtd_results['filter_ratio'] = []
 
     dirpath, _, filenames = next(data_path.walk())
