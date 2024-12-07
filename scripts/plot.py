@@ -30,7 +30,7 @@ def main():
     imbi_results['ratio'] = []
 
     imtd_results = {key: [] for key in measurement_keys}
-    imtd_results['support'] = []
+    imtd_results['weight'] = []
     imtd_results['filter_ratio'] = []
 
     dirpath, _, filenames = next(data_path.walk())
@@ -64,7 +64,7 @@ def main():
 
             case 'imtd':
                 support = params[0]
-                imtd_results['support'].append(support)
+                imtd_results['weight'].append(support)
                 filter_ratio = params[1]
                 imtd_results['filter_ratio'].append(filter_ratio)
                 load_data_to_dict(filepath, imtd_results, measurement_keys)
@@ -129,7 +129,7 @@ def parse_data_filename(filename: str) -> tuple[str, list[float]] | None:
             return variant, [support, ratio]
 
         case 'imtd':
-            if len(filename_parts) < 3 or not filename_parts[2].startswith('s') or not filename_parts[3].startswith(
+            if len(filename_parts) < 3 or not filename_parts[2].startswith('w') or not filename_parts[3].startswith(
                     'f'):
                 return None
 
@@ -197,7 +197,7 @@ def plot_imbi_results(imbi_df, dataset_name, savepath: Path):
 
 def plot_imtd_results(imtd_df, dataset_name, savepath: Path):
     title = 'IMtd-{}'.format(dataset_name)
-    plot_nested_group_results(imtd_df, [('support', 's'), ('filter_ratio', 'f')], title,
+    plot_nested_group_results(imtd_df, [('weight', 'w'), ('filter_ratio', 'f')], title,
                               savepath.joinpath('imtd_fig'))
 
 
