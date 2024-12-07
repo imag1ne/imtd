@@ -4,7 +4,7 @@
 # Example: ./run_discovery.sh -v imfbi -t 0.0 -d Sepsis_Cases -e complete -o output/sepsis_imfbi_t0.0
 #          ./run_discovery.sh -v imfbi -t 0.0 -d BPIC_2017 -e sampled -a 2000 -o output/bpic_2017_imfbi_t0.0
 
-while getopts v:t:s:r:f:d:e:a:o: flag
+while getopts v:t:s:r:w:f:d:e:a:o: flag
 do
     case "${flag}" in
         v) variant=${OPTARG};;
