@@ -1,11 +1,10 @@
 import argparse
 import csv
 import pm4py
-import numpy as np
 import time
 from pathlib import Path
 
-from imtd import discover_petri_net_inductive, discover_petri_net_inductive_bi, discover_petri_net_inductive_td, \
+from imtd import discover_petri_net_inductive, discover_petri_net_inductive_td, \
     Optimzation_Goals
 
 
@@ -14,38 +13,18 @@ def parse_args():
     subparsers = parser.add_subparsers(title='subcommands', description='valid subcommands', help='additional help',
                                        dest='subcommand')
 
-    im_parser = subparsers.add_parser('im', help='Inductive Miner')
-    im_parser.add_argument('-l', '--event-log', type=str, required=True)
-    im_parser.add_argument('-p', '--desirable-log', type=str, required=True)
-    im_parser.add_argument('-m', '--undesirable-log', type=str, required=False)
-    im_parser.add_argument('-t', '--noise-threshold', type=float, required=False)
-    im_parser.add_argument('-o', '--output', type=str, default='output')
-
     imfbi_parser = subparsers.add_parser('imfbi', help='Inductive Miner fbi')
-    imfbi_parser.add_argument('-l', '--event-log', type=str, required=True)
     imfbi_parser.add_argument('-p', '--desirable-log', type=str, required=True)
     imfbi_parser.add_argument('-m', '--undesirable-log', type=str, required=False)
     imfbi_parser.add_argument('-f', '--filter-ratio', type=float, required=False)
     imfbi_parser.add_argument('-t', '--noise-threshold', type=float, required=False)
     imfbi_parser.add_argument('-o', '--output', type=str, default='output')
 
-    imbi_parser = subparsers.add_parser('imbi', help='Inductive Miner bi')
-    imbi_parser.add_argument('-l', '--event-log', type=str, required=True)
-    imbi_parser.add_argument('-s', '--support', type=float, required=True)
-    imbi_parser.add_argument('-r', '--ratio', type=float, required=True)
-    imbi_parser.add_argument('-p', '--desirable-log', type=str, required=True)
-    imbi_parser.add_argument('-m', '--undesirable-log', type=str, required=True)
-    imbi_parser.add_argument('-o', '--output', type=str, default='output')
-    imbi_parser.add_argument('-x', '--parallel', type=bool, default=False, action=argparse.BooleanOptionalAction)
-
-    imtd_parser = subparsers.add_parser('imtd', help='Inductive Miner td')
-    imtd_parser.add_argument('-l', '--event-log', type=str, required=True)
-    imtd_parser.add_argument('-s', '--support', type=float, required=True)
-    imtd_parser.add_argument('-r', '--ratio', type=float, required=True)
-    imtd_parser.add_argument('-f', '--filter-ratio', type=float, required=True)
+    imtd_parser = subparsers.add_parser('imfc', help='Inductive Miner fc')
+    imtd_parser.add_argument('-w', '--weight', type=float, required=False)
+    imtd_parser.add_argument('-f', '--filter-ratio', type=float, required=False)
     imtd_parser.add_argument('-p', '--desirable-log', type=str, required=True)
     imtd_parser.add_argument('-m', '--undesirable-log', type=str, required=True)
-    imtd_parser.add_argument('-d', '--similarity-matrix', type=str, required=True)
     imtd_parser.add_argument('-o', '--output', type=str, default='output')
 
     return parser.parse_args()
@@ -54,19 +33,9 @@ def parse_args():
 def main():
     args = parse_args()
 
-    log = pm4py.read_xes(args.event_log, return_legacy_log_object=True)
-    log_p = pm4py.read_xes(args.desirable_log, return_legacy_log_object=True)
-    log_m = None
-
     # load the event logs
-    match args.subcommand:
-        case 'im':
-            if args.undesirable_log:
-                log_m = pm4py.read_xes(args.undesirable_log, return_legacy_log_object=True)
-            else:
-                log_m = log_p
-        case _:
-            log_m = pm4py.read_xes(args.undesirable_log, return_legacy_log_object=True)
+    log_p = pm4py.read_xes(args.desirable_log, return_legacy_log_object=True)
+    log_m = pm4py.read_xes(args.undesirable_log, return_legacy_log_object=True)
 
     # discover the petri net
     print("Discovering the petri net...")
@@ -78,51 +47,27 @@ def main():
     mes_filename = ''
     start = time.time()
     match args.subcommand:
-        case 'im':
-            noise_threshold = args.noise_threshold or 0.0
-            net, initial_marking, final_marking = pm4py.discover_petri_net_inductive(log,
-                                                                                     noise_threshold=noise_threshold,
-                                                                                     multi_processing=True)
-            suffix = 't{}'.format(noise_threshold)
-            pnml_file_name = 'imf_petri_{}'.format(suffix)
-            pnsvg_file_name = 'imf_petri_{}.svg'.format(suffix)
-            mes_filename = 'imf_petri_{}.csv'.format(suffix)
-
         case 'imfbi':
             filter_ratio = args.filter_ratio or 0.0
             noise_threshold = args.noise_threshold or 0.0
-            net, initial_marking, final_marking = discover_petri_net_inductive(log, log_m, filter_ratio=filter_ratio,
+            net, initial_marking, final_marking = discover_petri_net_inductive(log_p, log_m, filter_ratio=filter_ratio,
                                                                                noise_threshold=noise_threshold,
                                                                                multi_processing=True)
-            suffix = 't{}_r{}'.format(noise_threshold, filter_ratio)
+            suffix = 'f{}_t{}'.format(filter_ratio, noise_threshold)
             pnml_file_name = 'imfbi_petri_{}'.format(suffix)
             pnsvg_file_name = 'imfbi_petri_{}.svg'.format(suffix)
             mes_filename = 'imfbi_petri_{}.csv'.format(suffix)
 
-        case 'imbi':
-            net, initial_marking, final_marking = discover_petri_net_inductive_bi(
+        case 'imfc':
+            weight = args.weight or 0.5
+            filter_ratio = args.filter_ratio or 0.0
+
+            net, initial_marking, final_marking = discover_petri_net_inductive_td(
                 log_p,
                 log_m,
-                sup=args.support,
-                ratio=args.ratio,
-                size_par=len(log_p) / len(log_m),
-                parallel=args.parallel)
-            suffix = 's{}_r{}'.format(args.support, args.ratio)
-            pnml_file_name = 'imbi_petri_{}'.format(suffix)
-            pnsvg_file_name = 'imbi_petri_{}.svg'.format(suffix)
-            mes_filename = 'imbi_petri_{}.csv'.format(suffix)
-
-        case 'imtd':
-            similarity_matrix = np.genfromtxt(args.similarity_matrix, delimiter=',')
-            net, initial_marking, final_marking = discover_petri_net_inductive_td(
-                log,
-                log_m,
-                similarity_matrix,
-                sup=args.support,
-                ratio=args.ratio,
-                size_par=len(log) / len(log_m),
-                weight=args.filter_ratio)
-            suffix = 's{}_r{}_f{}'.format(args.support, args.ratio, args.filter_ratio)
+                weight=weight,
+                filter_ratio=filter_ratio)
+            suffix = 'w{}_f{}'.format(weight, filter_ratio)
             pnml_file_name = 'imtd_petri_{}'.format(suffix)
             pnsvg_file_name = 'imtd_petri_{}.svg'.format(suffix)
             mes_filename = 'imtd_petri_{}.csv'.format(suffix)
@@ -171,7 +116,5 @@ if __name__ == "__main__":
     main()
 
 # run the code
-# python scripts/main.py imtd -s 0.3 -r 0.3 -p "../Dataset/BPI Challenge 2017_1_all/desirable_event_log_sample_100.xes" -m "../Dataset/BPI Challenge 2017_1_all/undesirable_event_log_sample_100.xes" -d "../Dataset/BPI Challenge 2017_1_all/similarity_matrix_100.csv" -o "output/output_100_traces"
-# poetry run discover imtd -s 0.3 -r 0.3 -p "../Dataset/BPI Challenge 2017_1_all/desirable_event_log_sample_100.xes" -m "../Dataset/BPI Challenge 2017_1_all/undesirable_event_log_sample_100.xes" -d "../Dataset/BPI Challenge 2017_1_all/similarity_matrix_100.csv" -o "output/output_100_traces"
-# poetry run discover imbi -s 0.3 -r 0.3 -p "../Dataset/BPI Challenge 2017_1_all/desirable_event_log_sample_100.xes" -m "../Dataset/BPI Challenge 2017_1_all/undesirable_event_log_sample_100.xes" -o "output/output_100_traces"
-# poetry run discover im -p "../Dataset/BPI Challenge 2017_1_all/desirable_event_log_sample_100.xes" -o "output/output_100_traces"
+# python scripts/main.py imfc -w 0.3 -f 0.3 -p "../Dataset/BPIC_2017/desirable_event_log_sample_100.xes" -m "../Dataset/BPIC_2017/undesirable_event_log_sample_100.xes" -o "output/output_100_traces"
+# poetry run discover imfc -w 0.3 -f 0.3 -p "../Dataset/BPIC_2017/desirable_event_log_sample_100.xes" -m "../Dataset/BPIC_2017/undesirable_event_log_sample_100.xes" -o "output/output_100_traces"

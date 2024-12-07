@@ -9,7 +9,7 @@ EVENT_LOG_NAME = "event_log.xes"
 def main():
     event_log = pm4py.read_xes(EVENT_LOG_PATH + EVENT_LOG_NAME)
 
-    sizes = [100, 1000, 2000, 5000]
+    sizes = [100, 500, 1000, 2000, 10000]
     samples = (sample_cases(event_log, size) for size in sizes)
 
     for sample, size in zip(samples, sizes):

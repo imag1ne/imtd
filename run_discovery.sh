@@ -11,6 +11,7 @@ do
         t) threshold=${OPTARG};;
         s) support=${OPTARG};;
         r) ratio=${OPTARG};;
+        w) weight=${OPTARG};;
         f) filter_ratio=${OPTARG};;
         d) dataset=${OPTARG};;
         e) event_log_type=${OPTARG};;
@@ -63,6 +64,7 @@ default_range() {
 IFS=',' read -r -a threshold_values <<< "${threshold:-$(default_range)}"
 IFS=',' read -r -a support_values <<< "${support:-$(default_range)}"
 IFS=',' read -r -a ratio_values <<< "${ratio:-$(default_range)}"
+IFS=',' read -r -a weight_values <<< "${weight:-$(default_range)}"
 IFS=',' read -r -a filter_ratio_values <<< "${filter_ratio:-$(default_range)}"
 
 # Add specific parameters based on the selected variant
@@ -82,9 +84,9 @@ case $variant in
             done
         done;;
     "imtd")
-        for support in "${support_values[@]}"; do
+        for weight in "${weight_values[@]}"; do
             for filter_ratio in "${filter_ratio_values[@]}"; do
-                discover_cmd="$discover_command -s $support -f $filter_ratio"
+                discover_cmd="$discover_command -w $weight -f $filter_ratio"
                 echo -e "\U2699 Running discovery with command: $discover_cmd"
                 $discover_cmd
             done

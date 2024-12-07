@@ -15,6 +15,7 @@ def parse_args():
     parser.add_argument('-v', '--variant', type=str, required=True)
     parser.add_argument('-t', '--noise-threshold', type=float, required=False)
     parser.add_argument('-s', '--support', type=float, required=False)
+    parser.add_argument('-w', '--weight', type=float, required=False)
     parser.add_argument('-r', '--ratio', type=float, required=False)
     parser.add_argument('-f', '--filter-ratio', type=float, required=False)
     parser.add_argument('-p', '--desirable-log', type=str, required=True)
@@ -71,17 +72,13 @@ def main():
             model_filename = 'imbi_petri_{}'.format(suffix)
 
         case 'imtd':
-            similarity_matrix = np.zeros((len(log_p), len(log_m)))
-            print("\U0001F9E9 Inductive Miner td (support={}, filter_ratio={})".format(args.support, args.filter_ratio))
+            print("\U0001F9E9 Inductive Miner td (weight={}, filter_ratio={})".format(args.weight, args.filter_ratio))
             net, initial_marking, final_marking = discover_petri_net_inductive_td(
                 log_p,
                 log_m,
-                similarity_matrix,
-                sup=args.support,
-                ratio=0.0,
-                size_par=len(log_p) / len(log_m),
-                weight=args.filter_ratio)
-            suffix = 's{}_f{}'.format(args.support, args.filter_ratio)
+                weight=args.weight,
+                filter_ratio=args.filter_ratio)
+            suffix = 'w{}_f{}'.format(args.weight, args.filter_ratio)
             model_filename = 'imtd_petri_{}'.format(suffix)
 
         case _:

@@ -39,11 +39,11 @@ def discover_petri_net_inductive_bi(logp, logm, parameters=None, sup=None, ratio
                             parallel=parallel)
 
 
-def discover_petri_net_inductive_td(logp, logm, similarity_matrix, parameters=None, sup=None, ratio=None,
-                                    size_par=None, weight=None):
+def discover_petri_net_inductive_td(logp, logm, parameters=None, weight=None, filter_ratio=None,
+                                    size_par=None):
     from imtd.algo.discovery.inductive.variants.im_td import algorithm as im_td_algo
-    return im_td_algo.apply(logp, logm, similarity_matrix, parameters=parameters, sup=sup, ratio=ratio,
-                            size_par=size_par, weight=weight)
+    return im_td_algo.apply(logp, logm, None, parameters=parameters, sup=weight, ratio=0.0,
+                            size_par=len(logp) / len(logm), weight=filter_ratio)
 
 
 def discover_petri_net_inductive(log: Union[EventLog, pd.DataFrame, DFG],
